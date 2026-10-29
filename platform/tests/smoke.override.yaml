@@ -1,0 +1,9 @@
+services:
+  platform:
+    ports: !reset []
+  postgres:
+    ports: !reset []
+  minio:
+    ports: !reset []
+  nats:
+    ports: !reset []

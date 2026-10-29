@@ -1,0 +1,12 @@
+syntax = "proto3";
+package poligon.validation.v1;
+import "google/protobuf/struct.proto";
+// Integration proposal for the validation subset of EnvironmentService and
+// IntelligenceService, not a replacement for their full provider-owned services.
+// Actual RPC paths use poligon.environment.v1.EnvironmentService and
+// poligon.intelligence.v1.IntelligenceService. Request and response are Struct.
+// ValidateTemplate/ValidateScenario input: published scenario definition.
+// Output: {errors:[{path,code,message}],warnings:[{path,code,message}]}.
+// GetCapabilities input: {version_id,kind,modality,scenario}.
+// Output: {supported:boolean,errors:[],schema_hashes:{...}}.
+// Providers must agree on and implement this subset before integration.

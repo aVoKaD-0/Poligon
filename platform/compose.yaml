@@ -1,0 +1,199 @@
+{
+  "name": "poligon-platform",
+  "services": {
+    "postgres": {
+      "image": "postgres:17.6-alpine",
+      "environment": {
+        "POSTGRES_DB": "platform_db",
+        "POSTGRES_USER": "platform",
+        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD:?generate .env}"
+      },
+      "ports": [
+        "127.0.0.1:5432:5432"
+      ],
+      "volumes": [
+        "platform-db:/var/lib/postgresql/data"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U platform -d platform_db"
+        ],
+        "interval": "3s",
+        "timeout": "3s",
+        "retries": 20
+      }
+    },
+    "nats": {
+      "image": "nats:2.11.9-alpine",
+      "command": [
+        "-c",
+        "/etc/nats/nats.conf"
+      ],
+      "environment": {
+        "NATS_PLATFORM_PASSWORD": "${NATS_PLATFORM_PASSWORD}",
+        "NATS_RUNNER_PASSWORD": "${NATS_RUNNER_PASSWORD}",
+        "NATS_INTELLIGENCE_PASSWORD": "${NATS_INTELLIGENCE_PASSWORD}"
+      },
+      "volumes": [
+        "./deploy/nats.conf:/etc/nats/nats.conf:ro",
+        "platform-nats:/data"
+      ],
+      "ports": [
+        "127.0.0.1:4222:4222",
+        "127.0.0.1:8222:8222"
+      ]
+    },
+    "minio": {
+      "image": "minio/minio:RELEASE.2025-04-22T22-12-26Z",
+      "command": [
+        "server",
+        "/data",
+        "--console-address",
+        ":9001"
+      ],
+      "environment": {
+        "MINIO_ROOT_USER": "${S3_ACCESS_KEY}",
+        "MINIO_ROOT_PASSWORD": "${S3_SECRET_KEY}"
+      },
+      "volumes": [
+        "platform-evidence:/data"
+      ],
+      "ports": [
+        "127.0.0.1:9000:9000",
+        "127.0.0.1:9001:9001"
+      ]
+    },
+    "bucket": {
+      "image": "minio/mc:RELEASE.2025-04-16T18-13-26Z",
+      "depends_on": [
+        "minio"
+      ],
+      "environment": {
+        "S3_ACCESS_KEY": "${S3_ACCESS_KEY}",
+        "S3_SECRET_KEY": "${S3_SECRET_KEY}"
+      },
+      "entrypoint": [
+        "/bin/sh",
+        "-ec"
+      ],
+      "command": [
+        "until mc alias set local http://minio:9000 \"$$S3_ACCESS_KEY\" \"$$S3_SECRET_KEY\"; do sleep 2; done; mc mb --ignore-existing local/poligon-evidence"
+      ]
+    },
+    "migrate": {
+      "build": ".",
+      "env_file": [
+        ".env"
+      ],
+      "environment": {
+        "DATABASE_URL": "postgres://platform:${POSTGRES_PASSWORD:?generate .env}@postgres:5432/platform_db?sslmode=disable",
+        "NATS_URL": "nats://nats:4222",
+        "NATS_USER": "platform",
+        "NATS_PASSWORD": "${NATS_PLATFORM_PASSWORD}",
+        "S3_ENDPOINT": "minio:9000",
+        "S3_PUBLIC_ENDPOINT": "localhost:9000",
+        "ENVIRONMENT_GRPC_ADDR": "host.docker.internal:9091",
+        "INTELLIGENCE_GRPC_ADDR": "host.docker.internal:9092"
+      },
+      "extra_hosts": [
+        "host.docker.internal:host-gateway"
+      ],
+      "command": [
+        "migrate"
+      ],
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy"
+        }
+      }
+    },
+    "seed": {
+      "build": ".",
+      "env_file": [
+        ".env"
+      ],
+      "environment": {
+        "DATABASE_URL": "postgres://platform:${POSTGRES_PASSWORD:?generate .env}@postgres:5432/platform_db?sslmode=disable",
+        "NATS_URL": "nats://nats:4222",
+        "NATS_USER": "platform",
+        "NATS_PASSWORD": "${NATS_PLATFORM_PASSWORD}",
+        "S3_ENDPOINT": "minio:9000",
+        "S3_PUBLIC_ENDPOINT": "localhost:9000",
+        "ENVIRONMENT_GRPC_ADDR": "host.docker.internal:9091",
+        "INTELLIGENCE_GRPC_ADDR": "host.docker.internal:9092"
+      },
+      "extra_hosts": [
+        "host.docker.internal:host-gateway"
+      ],
+      "command": [
+        "seed"
+      ],
+      "depends_on": {
+        "migrate": {
+          "condition": "service_completed_successfully"
+        }
+      }
+    },
+    "platform": {
+      "build": ".",
+      "env_file": [
+        ".env"
+      ],
+      "environment": {
+        "DATABASE_URL": "postgres://platform:${POSTGRES_PASSWORD:?generate .env}@postgres:5432/platform_db?sslmode=disable",
+        "NATS_URL": "nats://nats:4222",
+        "NATS_USER": "platform",
+        "NATS_PASSWORD": "${NATS_PLATFORM_PASSWORD}",
+        "S3_ENDPOINT": "minio:9000",
+        "S3_PUBLIC_ENDPOINT": "localhost:9000",
+        "ENVIRONMENT_GRPC_ADDR": "host.docker.internal:9091",
+        "INTELLIGENCE_GRPC_ADDR": "host.docker.internal:9092"
+      },
+      "extra_hosts": [
+        "host.docker.internal:host-gateway"
+      ],
+      "depends_on": {
+        "seed": {
+          "condition": "service_completed_successfully"
+        },
+        "bucket": {
+          "condition": "service_completed_successfully"
+        },
+        "nats": {
+          "condition": "service_started"
+        }
+      },
+      "ports": [
+        "127.0.0.1:8080:8080",
+        "127.0.0.1:9090:9090"
+      ],
+      "restart": "unless-stopped"
+    },
+    "keycloak": {
+      "image": "quay.io/keycloak/keycloak:26.3.3",
+      "profiles": [
+        "oidc"
+      ],
+      "command": [
+        "start-dev",
+        "--import-realm"
+      ],
+      "environment": {
+        "KC_BOOTSTRAP_ADMIN_USERNAME": "${KEYCLOAK_ADMIN}",
+        "KC_BOOTSTRAP_ADMIN_PASSWORD": "${KEYCLOAK_ADMIN_PASSWORD}"
+      },
+      "ports": [
+        "127.0.0.1:8081:8080"
+      ],
+      "volumes": [
+        "./deploy/keycloak-realm.json:/opt/keycloak/data/import/poligon.json:ro"
+      ]
+    }
+  },
+  "volumes": {
+    "platform-db": {},
+    "platform-nats": {},
+    "platform-evidence": {}
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "a0000000-0000-4000-8000-000000000001",
+    "kind": "environment",
+    "definition": {
+      "schema_version": 1,
+      "template_id": "field-service",
+      "template_version": "v1",
+      "capability_version": "field-service.v1"
+    }
+  },
+  {
+    "id": "a0000000-0000-4000-8000-000000000002",
+    "kind": "simulator",
+    "definition": {
+      "schema_version": 1,
+      "mode": "scripted",
+      "capability_version": "scripted.v1",
+      "modalities": [
+        "text"
+      ],
+      "steps": [
+        {
+          "action": "say",
+          "text": "Нужна одна заявка на ремонт по адресу: Тестовая улица, дом 10."
+        },
+        {
+          "action": "finish",
+          "reason": "client_finished"
+        }
+      ]
+    }
+  },
+  {
+    "id": "a0000000-0000-4000-8000-000000000003",
+    "kind": "evaluator",
+    "definition": {
+      "schema_version": 1,
+      "capability_version": "deterministic.v1",
+      "modalities": [
+        "text"
+      ],
+      "rules": [
+        "booking.count.v1",
+        "booking.no_duplicate_create.v1",
+        "execution.valid_completion.v1"
+      ]
+    }
+  }
+]

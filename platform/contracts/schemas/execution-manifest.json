@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "project_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "session_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "attempt_no": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent_version_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "scenario_version_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "environment_version_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "evaluator_version_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "simulator_version_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        }
+      },
+      "required": [
+        "agent_version_id",
+        "scenario_version_id",
+        "environment_version_id",
+        "evaluator_version_id",
+        "simulator_version_id"
+      ]
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "execution_status": {
+      "enum": [
+        "executed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "termination_reason": {
+      "enum": [
+        "completed",
+        "client_finished",
+        "max_turns",
+        "max_tool_calls",
+        "session_deadline",
+        "budget_exceeded",
+        "agent_protocol_error",
+        "cancelled",
+        "infrastructure_error"
+      ]
+    },
+    "conversation_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "mime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "conversation",
+            "tool_calls",
+            "environment_snapshot",
+            "environment_audit",
+            "execution_manifest",
+            "audio_track",
+            "audio_alignment",
+            "assessment",
+            "diagnostics"
+          ]
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "size_bytes",
+        "mime",
+        "kind"
+      ]
+    },
+    "tool_calls_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "mime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "conversation",
+            "tool_calls",
+            "environment_snapshot",
+            "environment_audit",
+            "execution_manifest",
+            "audio_track",
+            "audio_alignment",
+            "assessment",
+            "diagnostics"
+          ]
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "size_bytes",
+        "mime",
+        "kind"
+      ]
+    },
+    "environment_snapshot_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "mime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "conversation",
+            "tool_calls",
+            "environment_snapshot",
+            "environment_audit",
+            "execution_manifest",
+            "audio_track",
+            "audio_alignment",
+            "assessment",
+            "diagnostics"
+          ]
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "size_bytes",
+        "mime",
+        "kind"
+      ]
+    },
+    "environment_audit_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "string",
+          "pattern": "^[0-9]+$"
+        },
+        "mime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "conversation",
+            "tool_calls",
+            "environment_snapshot",
+            "environment_audit",
+            "execution_manifest",
+            "audio_track",
+            "audio_alignment",
+            "assessment",
+            "diagnostics"
+          ]
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "size_bytes",
+        "mime",
+        "kind"
+      ]
+    },
+    "audio_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "mime": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "conversation",
+              "tool_calls",
+              "environment_snapshot",
+              "environment_audit",
+              "execution_manifest",
+              "audio_track",
+              "audio_alignment",
+              "assessment",
+              "diagnostics"
+            ]
+          }
+        },
+        "required": [
+          "artifact_id",
+          "sha256",
+          "size_bytes",
+          "mime",
+          "kind"
+        ]
+      }
+    },
+    "usage": {
+      "type": "object"
+    },
+    "timestamps": {
+      "type": "object",
+      "properties": {
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "started_at",
+        "finished_at"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "project_id",
+    "run_id",
+    "session_id",
+    "attempt_no",
+    "versions",
+    "seed",
+    "execution_status",
+    "termination_reason",
+    "conversation_ref",
+    "tool_calls_ref",
+    "environment_snapshot_ref",
+    "environment_audit_ref",
+    "audio_refs",
+    "usage",
+    "timestamps"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+/bin/
+/coverage.out
+*.test
+.DS_Store
+
+# Parent repository ignores docs/; Platform runbooks are part of this service.
+!docs/
+!docs/**

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "size_bytes": {
+      "type": "string",
+      "pattern": "^[0-9]+$"
+    },
+    "mime": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "conversation",
+        "tool_calls",
+        "environment_snapshot",
+        "environment_audit",
+        "execution_manifest",
+        "audio_track",
+        "audio_alignment",
+        "assessment",
+        "diagnostics"
+      ]
+    }
+  },
+  "required": [
+    "artifact_id",
+    "sha256",
+    "size_bytes",
+    "mime",
+    "kind"
+  ]
+}
