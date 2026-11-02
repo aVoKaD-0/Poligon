@@ -16,7 +16,6 @@ func TestFaultEngine_PreRequestMatching(t *testing.T) {
 			PathPattern: "/api/v1/orders",
 			HttpStatus:  409,
 			MaxTriggers: 1,
-			Active:      true,
 		},
 	}
 
@@ -48,7 +47,6 @@ func TestFaultEngine_TimeoutAfterSave(t *testing.T) {
 			DelayMs:     5,
 			HttpStatus:  504,
 			MaxTriggers: 1,
-			Active:      true,
 		},
 	}
 
@@ -72,5 +70,42 @@ func TestFaultEngine_TimeoutAfterSave(t *testing.T) {
 	}
 	if duration < 5*time.Millisecond {
 		t.Errorf("expected delay of at least 5ms, took %v", duration)
+	}
+}
+
+func TestFaultActivationDefaultsAndExplicitDisable(t *testing.T) {
+	inactive := false
+	for _, addDynamically := range []bool{false, true} {
+		for _, active := range []*bool{nil, &inactive} {
+			rule := domain.FaultRule{FaultType: domain.FaultConflict, Active: active, MaxTriggers: 1}
+			var engine *Engine
+			if addDynamically {
+				engine = NewEngine(nil)
+				engine.AddRule(rule)
+			} else {
+				engine = NewEngine([]domain.FaultRule{rule})
+			}
+			_, err := engine.MatchPreRequest("POST", "/api/v1/orders")
+			if (err != nil) != (active == nil) {
+				t.Fatalf("unexpected activation: active=%v error=%v", active, err)
+			}
+			if active == nil {
+				engine.Reset()
+				if _, err := engine.MatchPreRequest("POST", "/api/v1/orders"); err == nil {
+					t.Fatal("reset did not rearm rule")
+				}
+			}
+		}
+	}
+}
+
+func TestFaultRulesDoNotShareActivationPointers(t *testing.T) {
+	active := true
+	engine := NewEngine([]domain.FaultRule{{FaultType: domain.FaultConflict, Active: &active}})
+	active = false
+	returned := engine.GetRules()
+	*returned[0].Active = false
+	if _, err := engine.MatchPreRequest("POST", "/api/v1/orders"); err == nil {
+		t.Fatal("caller changed stored rule through a shared pointer")
 	}
 }

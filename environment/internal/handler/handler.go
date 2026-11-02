@@ -3,10 +3,12 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 
 	"poligon/environment/internal/domain"
+	"poligon/environment/internal/faults"
 	"poligon/environment/internal/service"
 	"poligon/environment/internal/store"
 )
@@ -77,8 +79,15 @@ type InitSessionPayload struct {
 
 func (h *Handler) CreateOrInitSession(w http.ResponseWriter, r *http.Request) {
 	var payload InitSessionPayload
-	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&payload)
+	if err := decodeJSONObject(r, &payload); err != nil {
+		h.WriteError(w, http.StatusBadRequest, "invalid_json", err.Error())
+		return
+	}
+	for _, rule := range payload.FaultRules {
+		if err := faults.ValidateRule(rule); err != nil {
+			h.WriteError(w, http.StatusBadRequest, "invalid_fault_rule", err.Error())
+			return
+		}
 	}
 	sessionID := payload.SessionID
 	if sessionID == "" {
@@ -110,10 +119,11 @@ func (h *Handler) GetSessionState(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GetSessionAudit(w http.ResponseWriter, r *http.Request) {
 	sessionID := h.ExtractSessionID(r)
 	sess := h.manager.GetOrCreate(sessionID)
+	events := sess.GetAuditLog()
 	h.WriteJSON(w, http.StatusOK, map[string]any{
 		"session_id": sessionID,
-		"events":     sess.GetAuditLog(),
-		"count":      len(sess.GetAuditLog()),
+		"events":     events,
+		"count":      len(events),
 	})
 }
 
@@ -130,14 +140,18 @@ func (h *Handler) ResetSession(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) AddFaultRule(w http.ResponseWriter, r *http.Request) {
 	sessionID := h.ExtractSessionID(r)
-	sess := h.manager.GetOrCreate(sessionID)
 
 	var rule domain.FaultRule
-	if err := json.NewDecoder(r.Body).Decode(&rule); err != nil {
+	if err := decodeJSONObject(r, &rule); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "invalid_json", err.Error())
 		return
 	}
 
+	if err := faults.ValidateRule(rule); err != nil {
+		h.WriteError(w, http.StatusBadRequest, "invalid_fault_rule", err.Error())
+		return
+	}
+	sess := h.manager.GetOrCreate(sessionID)
 	sess.Faults().AddRule(rule)
 	h.WriteJSON(w, http.StatusCreated, map[string]any{
 		"status": "rule_added",
@@ -159,7 +173,7 @@ func (h *Handler) VerifySession(w http.ResponseWriter, r *http.Request) {
 	sess := h.manager.GetOrCreate(sessionID)
 
 	var criteria domain.VerificationCriteria
-	if err := json.NewDecoder(r.Body).Decode(&criteria); err != nil {
+	if err := decodeJSONObject(r, &criteria); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "invalid_json", err.Error())
 		return
 	}
@@ -248,7 +262,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 1. Evaluate Pre-Request Faults
-	postSaveRule, injectedErr := sess.Faults().MatchPreRequest(r.Method, r.URL.Path)
+	postSaveRule, injectedErr := sess.Faults().MatchPreRequest(r.Method, r.URL.Path, canonicalFaultPath(r))
 	if injectedErr != nil {
 		sess.AppendAudit(domain.AuditEvent{
 			Action:         domain.AuditActionCreateOrder,
@@ -274,7 +288,7 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Decode Request Body
 	var req service.CreateOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONObject(r, &req); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "invalid_json", err.Error())
 		return
 	}
@@ -303,26 +317,8 @@ func (h *Handler) CreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 4. Handle Post-Save Fault (e.g. Timeout After Save!)
-	if postSaveRule != nil && !isIdempotent {
-		postErr := sess.Faults().HandlePostSave(postSaveRule)
-		if postErr != nil {
-			// Record that order was SAVED, but caller received timeout!
-			sess.AppendAudit(domain.AuditEvent{
-				Action:         domain.AuditActionCreateOrder,
-				EntityType:     "order",
-				EntityID:       order.ID,
-				Method:         r.Method,
-				Path:           r.URL.Path,
-				IdempotencyKey: req.IdempotencyKey,
-				ResponseStatus: postErr.StatusCode,
-				AfterState:     order,
-				FaultInjected:  string(postErr.FaultType),
-				ErrorMessage:   postErr.Message,
-			})
-			h.WriteError(w, postErr.StatusCode, string(postErr.FaultType), postErr.Message)
-			return
-		}
+	if !isIdempotent && h.writePostSaveFault(w, r, sess, postSaveRule, domain.AuditActionCreateOrder, req, order) {
+		return
 	}
 
 	status := http.StatusCreated
@@ -338,7 +334,7 @@ func (h *Handler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 	orderID := r.PathValue("id")
 
 	// Pre-request fault evaluation
-	_, injectedErr := sess.Faults().MatchPreRequest(r.Method, r.URL.Path)
+	postSaveRule, injectedErr := sess.Faults().MatchPreRequest(r.Method, r.URL.Path, canonicalFaultPath(r))
 	if injectedErr != nil {
 		sess.AppendAudit(domain.AuditEvent{
 			Action:         domain.AuditActionUpdateOrder,
@@ -355,7 +351,7 @@ func (h *Handler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req service.UpdateOrderRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSONObject(r, &req); err != nil {
 		h.WriteError(w, http.StatusBadRequest, "invalid_json", err.Error())
 		return
 	}
@@ -374,6 +370,9 @@ func (h *Handler) UpdateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if h.writePostSaveFault(w, r, sess, postSaveRule, domain.AuditActionUpdateOrder, req, order) {
+		return
+	}
 	h.WriteJSON(w, http.StatusOK, order)
 }
 
@@ -383,7 +382,7 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 	orderID := r.PathValue("id")
 
 	// Pre-request fault evaluation
-	_, injectedErr := sess.Faults().MatchPreRequest(r.Method, r.URL.Path)
+	postSaveRule, injectedErr := sess.Faults().MatchPreRequest(r.Method, r.URL.Path, canonicalFaultPath(r))
 	if injectedErr != nil {
 		sess.AppendAudit(domain.AuditEvent{
 			Action:         domain.AuditActionCancelOrder,
@@ -405,9 +404,63 @@ func (h *Handler) CancelOrder(w http.ResponseWriter, r *http.Request) {
 			h.WriteError(w, http.StatusNotFound, "order_not_found", err.Error())
 			return
 		}
+		if errors.Is(err, service.ErrConflict) {
+			h.WriteError(w, http.StatusConflict, "conflict", err.Error())
+			return
+		}
 		h.WriteError(w, http.StatusInternalServerError, "internal_error", err.Error())
 		return
 	}
 
+	if h.writePostSaveFault(w, r, sess, postSaveRule, domain.AuditActionCancelOrder, nil, order) {
+		return
+	}
 	h.WriteJSON(w, http.StatusOK, order)
+}
+
+// writePostSaveFault records the committed mutation separately from its API failure.
+func (h *Handler) writePostSaveFault(w http.ResponseWriter, r *http.Request, sess *store.SessionState, rule *domain.FaultRule, action domain.AuditAction, payload any, order domain.Order) bool {
+	postErr := sess.Faults().HandlePostSave(rule)
+	if postErr == nil {
+		return false
+	}
+	sess.AppendAudit(domain.AuditEvent{
+		Action: action, EntityType: "order", EntityID: order.ID,
+		Method: r.Method, Path: r.URL.Path, IdempotencyKey: order.IdempotencyKey,
+		RequestPayload: payload, ResponseStatus: postErr.StatusCode,
+		AfterState: order, FaultInjected: string(postErr.FaultType), ErrorMessage: postErr.Message,
+	})
+	h.WriteError(w, postErr.StatusCode, string(postErr.FaultType), postErr.Message)
+	return true
+}
+
+// canonicalFaultPath makes the session-prefixed routes aliases of the CRM API.
+// The engine also receives the raw path so explicitly scoped rules still match.
+func canonicalFaultPath(r *http.Request) string {
+	if id := r.PathValue("session_id"); id != "" {
+		prefix := "/api/v1/sessions/" + id
+		if strings.HasPrefix(r.URL.Path, prefix+"/") {
+			return "/api/v1" + strings.TrimPrefix(r.URL.Path, prefix)
+		}
+	}
+	return r.URL.Path
+}
+
+func decodeJSONObject(r *http.Request, destination any) error {
+	if r.Body == nil {
+		return errors.New("a JSON object is required")
+	}
+	decoder := json.NewDecoder(r.Body)
+	var data json.RawMessage
+	if err := decoder.Decode(&data); err != nil {
+		return err
+	}
+	if len(data) == 0 || data[0] != '{' {
+		return errors.New("a JSON object is required")
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return errors.New("expected a single JSON object")
+	}
+	return json.Unmarshal(data, destination)
 }

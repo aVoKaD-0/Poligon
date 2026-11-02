@@ -1,12 +1,33 @@
 package faults
 
 import (
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"poligon/environment/internal/domain"
 )
+
+// ValidateRule rejects configurations that cannot represent a supported failure.
+func ValidateRule(rule domain.FaultRule) error {
+	switch rule.FaultType {
+	case domain.FaultTimeoutAfterSave, domain.FaultTimeoutBeforeSave, domain.FaultDelay,
+		domain.FaultConflict, domain.FaultServerError, domain.FaultRateLimit:
+	default:
+		return fmt.Errorf("unsupported fault_type %q", rule.FaultType)
+	}
+	if rule.HttpStatus != 0 && (rule.HttpStatus < 400 || rule.HttpStatus > 599) {
+		return fmt.Errorf("http_status must be 0 or an error status between 400 and 599")
+	}
+	if rule.DelayMs < 0 || int64(rule.DelayMs) > int64((1<<63-1)/time.Millisecond) {
+		return fmt.Errorf("delay_ms must be non-negative and fit in a time.Duration")
+	}
+	if rule.MaxTriggers < 0 {
+		return fmt.Errorf("max_triggers must be non-negative")
+	}
+	return nil
+}
 
 // InjectedError represents an error triggered by the fault injection engine.
 type InjectedError struct {
@@ -30,9 +51,8 @@ func NewEngine(rules []domain.FaultRule) *Engine {
 	e := &Engine{
 		rules: make([]*domain.FaultRule, 0, len(rules)),
 	}
-	for _, r := range rules {
-		ruleCopy := r
-		e.rules = append(e.rules, &ruleCopy)
+	for _, rule := range rules {
+		e.AddRule(rule)
 	}
 	return e
 }
@@ -41,11 +61,11 @@ func NewEngine(rules []domain.FaultRule) *Engine {
 func (e *Engine) AddRule(rule domain.FaultRule) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	ruleCopy := rule
+	ruleCopy := cloneRule(rule)
+	ruleCopy.TriggerCount = 0
 	if ruleCopy.ID == "" {
 		ruleCopy.ID = "fault-" + time.Now().Format("150405.000000")
 	}
-	ruleCopy.Active = true
 	e.rules = append(e.rules, &ruleCopy)
 }
 
@@ -62,108 +82,99 @@ func (e *Engine) GetRules() []domain.FaultRule {
 	defer e.mu.RUnlock()
 	result := make([]domain.FaultRule, len(e.rules))
 	for i, r := range e.rules {
-		result[i] = *r
+		result[i] = cloneRule(*r)
 	}
 	return result
 }
 
-// MatchPreRequest checks if a rule triggers before request execution.
-// Returns an InjectedError if the request should fail immediately, or postSaveRule if timeout_after_save applies.
-func (e *Engine) MatchPreRequest(method, path string) (postSaveRule *domain.FaultRule, injectedErr *InjectedError) {
+// Reset rearms the configured scenario, including dynamically added rules.
+func (e *Engine) Reset() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-
 	for _, rule := range e.rules {
-		if !rule.Active {
+		rule.TriggerCount = 0
+	}
+}
+
+func cloneRule(rule domain.FaultRule) domain.FaultRule {
+	if rule.Active != nil {
+		active := *rule.Active
+		rule.Active = &active
+	}
+	return rule
+}
+
+// matchRule consumes a trigger atomically and returns an independent copy.
+func (e *Engine) matchRule(method string, paths ...string) *domain.FaultRule {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, rule := range e.rules {
+		if rule.Active != nil && !*rule.Active {
 			continue
 		}
 		if rule.MaxTriggers > 0 && rule.TriggerCount >= rule.MaxTriggers {
 			continue
 		}
-		if !matchFilter(rule.Method, method) || !matchFilter(rule.PathPattern, path) {
+		if !matchFilter(rule.Method, method) {
 			continue
 		}
-
-		// Matched rule! Increment trigger count.
-		rule.TriggerCount++
-
-		switch rule.FaultType {
-		case domain.FaultDelay:
-			if rule.DelayMs > 0 {
-				time.Sleep(time.Duration(rule.DelayMs) * time.Millisecond)
-			}
-			return nil, nil
-
-		case domain.FaultTimeoutAfterSave:
-			// Let the save operation complete first, then timeout!
-			return rule, nil
-
-		case domain.FaultTimeoutBeforeSave:
-			if rule.DelayMs > 0 {
-				time.Sleep(time.Duration(rule.DelayMs) * time.Millisecond)
-			}
-			status := rule.HttpStatus
-			if status == 0 {
-				status = 504
-			}
-			msg := rule.ErrorMessage
-			if msg == "" {
-				msg = "Simulated upstream timeout before processing"
-			}
-			return nil, &InjectedError{
-				FaultType:  domain.FaultTimeoutBeforeSave,
-				StatusCode: status,
-				Message:    msg,
-			}
-
-		case domain.FaultConflict:
-			status := rule.HttpStatus
-			if status == 0 {
-				status = 409
-			}
-			msg := rule.ErrorMessage
-			if msg == "" {
-				msg = "Simulated resource conflict"
-			}
-			return nil, &InjectedError{
-				FaultType:  domain.FaultConflict,
-				StatusCode: status,
-				Message:    msg,
-			}
-
-		case domain.FaultServerError:
-			status := rule.HttpStatus
-			if status == 0 {
-				status = 500
-			}
-			msg := rule.ErrorMessage
-			if msg == "" {
-				msg = "Simulated internal server error"
-			}
-			return nil, &InjectedError{
-				FaultType:  domain.FaultServerError,
-				StatusCode: status,
-				Message:    msg,
-			}
-
-		case domain.FaultRateLimit:
-			status := rule.HttpStatus
-			if status == 0 {
-				status = 429
-			}
-			msg := rule.ErrorMessage
-			if msg == "" {
-				msg = "Simulated rate limit exceeded"
-			}
-			return nil, &InjectedError{
-				FaultType:  domain.FaultRateLimit,
-				StatusCode: status,
-				Message:    msg,
+		matched := false
+		for _, path := range paths {
+			if matchFilter(rule.PathPattern, path) {
+				matched = true
+				break
 			}
 		}
+		if !matched {
+			continue
+		}
+		rule.TriggerCount++
+		copy := cloneRule(*rule)
+		return &copy
 	}
+	return nil
+}
 
-	return nil, nil
+// MatchPreRequest evaluates faults before execution and returns a copy of any post-save rule.
+func (e *Engine) MatchPreRequest(method, path string, aliases ...string) (postSaveRule *domain.FaultRule, injectedErr *InjectedError) {
+	rule := e.matchRule(method, append([]string{path}, aliases...)...)
+	if rule == nil {
+		return nil, nil
+	}
+	// Artificial delays must not hold the engine lock or block unrelated calls.
+	switch rule.FaultType {
+	case domain.FaultDelay:
+		if rule.DelayMs > 0 {
+			time.Sleep(time.Duration(rule.DelayMs) * time.Millisecond)
+		}
+		return nil, nil
+	case domain.FaultTimeoutAfterSave:
+		return rule, nil
+	}
+	var status int
+	var message string
+	switch rule.FaultType {
+	case domain.FaultTimeoutBeforeSave:
+		if rule.DelayMs > 0 {
+			time.Sleep(time.Duration(rule.DelayMs) * time.Millisecond)
+		}
+		status, message = 504, "Simulated upstream timeout before processing"
+	case domain.FaultConflict:
+		status, message = 409, "Simulated resource conflict"
+	case domain.FaultServerError:
+		status, message = 500, "Simulated internal server error"
+	case domain.FaultRateLimit:
+		status, message = 429, "Simulated rate limit exceeded"
+	default:
+		return nil, nil
+	}
+	if rule.HttpStatus != 0 {
+		status = rule.HttpStatus
+	}
+	if rule.ErrorMessage != "" {
+		message = rule.ErrorMessage
+	}
+	return nil, &InjectedError{FaultType: rule.FaultType, StatusCode: status, Message: message}
 }
 
 // HandlePostSave executes post-mutation timeout for timeout_after_save.

@@ -111,6 +111,7 @@ func (s *SessionState) Reset() {
 		s.Orders[k] = v
 	}
 
+	s.FaultEngine.Reset()
 	s.UpdatedAt = time.Now()
 	s.AuditLog = append(s.AuditLog, domain.AuditEvent{
 		ID:             fmt.Sprintf("audit-%d", time.Now().UnixNano()),
@@ -165,7 +166,9 @@ func (s *SessionState) GetAuditLog() []domain.AuditEvent {
 	defer s.mu.RUnlock()
 
 	result := make([]domain.AuditEvent, len(s.AuditLog))
-	copy(result, s.AuditLog)
+	for i, event := range s.AuditLog {
+		result[i] = snapshotAuditEvent(event)
+	}
 	return result
 }
 
@@ -173,7 +176,11 @@ func (s *SessionState) GetAuditLog() []domain.AuditEvent {
 func (s *SessionState) AppendAudit(event domain.AuditEvent) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.appendAuditLocked(event)
+}
 
+func (s *SessionState) appendAuditLocked(event domain.AuditEvent) {
+	event = snapshotAuditEvent(event)
 	if event.ID == "" {
 		event.ID = fmt.Sprintf("evt-%d", time.Now().UnixNano())
 	}
@@ -182,116 +189,6 @@ func (s *SessionState) AppendAudit(event domain.AuditEvent) {
 	}
 	event.SessionID = s.SessionID
 	s.AuditLog = append(s.AuditLog, event)
-}
-
-// Verify evaluates the current state against expected assertions.
-func (s *SessionState) Verify(criteria domain.VerificationCriteria) domain.VerificationReport {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	report := domain.VerificationReport{
-		SessionID:   s.SessionID,
-		CheckedAt:   time.Now(),
-		OverallPass: true,
-		Assertions:  make([]domain.AssertionResult, 0),
-		TotalOrders: len(s.Orders),
-	}
-
-	activeOrders := make([]domain.Order, 0)
-	ordersByClient := make(map[string][]domain.Order)
-	for _, ord := range s.Orders {
-		if ord.Status == domain.OrderStatusActive {
-			activeOrders = append(activeOrders, ord)
-		}
-		ordersByClient[ord.ClientID] = append(ordersByClient[ord.ClientID], ord)
-	}
-	report.ActiveOrders = len(activeOrders)
-
-	// Assertion 1: Expected active orders count
-	if criteria.ExpectedActiveOrdersCount != nil {
-		expected := *criteria.ExpectedActiveOrdersCount
-		pass := len(activeOrders) == expected
-		details := []string{
-			fmt.Sprintf("Expected active orders: %d, Actual: %d", expected, len(activeOrders)),
-		}
-		for _, o := range activeOrders {
-			details = append(details, fmt.Sprintf("Active Order: id=%s client_id=%s date=%s time=%s", o.ID, o.ClientID, o.Date, o.TimeWindow))
-		}
-		if !pass {
-			report.OverallPass = false
-		}
-		report.Assertions = append(report.Assertions, domain.AssertionResult{
-			Name:    "expected_active_orders_count",
-			Passed:  pass,
-			Message: fmt.Sprintf("Checked total active orders: %d expected, %d found", expected, len(activeOrders)),
-			Details: details,
-		})
-	}
-
-	// Assertion 2: Disallow duplicates for client
-	if criteria.DisallowDuplicates {
-		clientID := criteria.ClientID
-		if clientID != "" {
-			clientActiveOrders := make([]domain.Order, 0)
-			for _, ord := range ordersByClient[clientID] {
-				if ord.Status == domain.OrderStatusActive {
-					clientActiveOrders = append(clientActiveOrders, ord)
-				}
-			}
-			pass := len(clientActiveOrders) <= 1
-			details := []string{
-				fmt.Sprintf("Client %s active orders count: %d", clientID, len(clientActiveOrders)),
-			}
-			for _, ord := range clientActiveOrders {
-				details = append(details, fmt.Sprintf("Order %s: date=%s, time=%s, address=%s", ord.ID, ord.Date, ord.TimeWindow, ord.Address))
-			}
-			if !pass {
-				report.OverallPass = false
-			}
-			report.Assertions = append(report.Assertions, domain.AssertionResult{
-				Name:    "no_duplicate_orders_for_client",
-				Passed:  pass,
-				Message: fmt.Sprintf("Client %s duplicate check (max 1 active allowed)", clientID),
-				Details: details,
-			})
-		}
-	}
-
-	// Assertion 3: Verify address on latest order
-	if criteria.ExpectedAddress != "" && len(activeOrders) > 0 {
-		latest := activeOrders[len(activeOrders)-1]
-		pass := strings.TrimSpace(latest.Address) == strings.TrimSpace(criteria.ExpectedAddress)
-		if !pass {
-			report.OverallPass = false
-		}
-		report.Assertions = append(report.Assertions, domain.AssertionResult{
-			Name:    "expected_address_match",
-			Passed:  pass,
-			Message: fmt.Sprintf("Checking address matches expected: '%s'", criteria.ExpectedAddress),
-			Details: []string{
-				fmt.Sprintf("Actual address on order %s: '%s'", latest.ID, latest.Address),
-			},
-		})
-	}
-
-	// Assertion 4: Verify time window
-	if criteria.ExpectedTimeWindow != "" && len(activeOrders) > 0 {
-		latest := activeOrders[len(activeOrders)-1]
-		pass := strings.Contains(strings.ToLower(latest.TimeWindow), strings.ToLower(criteria.ExpectedTimeWindow))
-		if !pass {
-			report.OverallPass = false
-		}
-		report.Assertions = append(report.Assertions, domain.AssertionResult{
-			Name:    "expected_time_window_match",
-			Passed:  pass,
-			Message: fmt.Sprintf("Checking time window matches expected: '%s'", criteria.ExpectedTimeWindow),
-			Details: []string{
-				fmt.Sprintf("Actual time window on order %s: '%s'", latest.ID, latest.TimeWindow),
-			},
-		})
-	}
-
-	return report
 }
 
 // Session state query & mutation methods:
@@ -429,7 +326,7 @@ func (s *SessionState) Faults() *faults.Engine {
 
 // Helpers for seeding:
 
-func newDefaultSession(sessionID string, faultRules []domain.FaultRule) *SessionState {
+func defaultFixtures() ([]domain.Client, []domain.Slot) {
 	defaultClients := []domain.Client{
 		{
 			ID:        "client-001",
@@ -503,10 +400,23 @@ func newDefaultSession(sessionID string, faultRules []domain.FaultRule) *Session
 		},
 	}
 
-	return newSessionWithFixtures(sessionID, defaultClients, defaultSlots, faultRules)
+	return defaultClients, defaultSlots
+}
+
+func newDefaultSession(sessionID string, faultRules []domain.FaultRule) *SessionState {
+	return newSessionWithFixtures(sessionID, nil, nil, faultRules)
 }
 
 func newSessionWithFixtures(sessionID string, clients []domain.Client, slots []domain.Slot, faultRules []domain.FaultRule) *SessionState {
+	if clients == nil || slots == nil {
+		defaultClients, defaultSlots := defaultFixtures()
+		if clients == nil {
+			clients = defaultClients
+		}
+		if slots == nil {
+			slots = defaultSlots
+		}
+	}
 	now := time.Now()
 	clientsMap := make(map[string]domain.Client)
 	for _, c := range clients {

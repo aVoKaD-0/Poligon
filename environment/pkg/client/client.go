@@ -8,10 +8,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
-	"poligon/environment/internal/domain"
-	"poligon/environment/internal/service"
+	"poligon/environment/pkg/api"
 )
 
 // Client is a Go client for interacting with the Environment service.
@@ -24,17 +24,17 @@ type Client struct {
 // NewClient creates a new Environment API client.
 func NewClient(baseURL, sessionID string) *Client {
 	return &Client{
-		baseURL: baseURL,
+		baseURL: strings.TrimRight(baseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
-		sessionID: sessionID,
+		sessionID: normalizeSessionID(sessionID),
 	}
 }
 
 // SetSessionID updates the active session ID for requests.
 func (c *Client) SetSessionID(sessionID string) {
-	c.sessionID = sessionID
+	c.sessionID = normalizeSessionID(sessionID)
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, idempotencyKey string) (*http.Response, []byte, error) {
@@ -75,7 +75,7 @@ func (c *Client) do(ctx context.Context, method, path string, body any, idempote
 }
 
 // InitSession initializes or resets a session with fixtures and fault rules.
-func (c *Client) InitSession(ctx context.Context, sessionID string, clients []domain.Client, slots []domain.Slot, faultRules []domain.FaultRule) (*domain.StateSnapshot, error) {
+func (c *Client) InitSession(ctx context.Context, sessionID string, clients []api.Client, slots []api.Slot, faultRules []api.FaultRule) (*api.StateSnapshot, error) {
 	payload := map[string]any{
 		"session_id":  sessionID,
 		"clients":     clients,
@@ -92,18 +92,18 @@ func (c *Client) InitSession(ctx context.Context, sessionID string, clients []do
 	}
 
 	var res struct {
-		Snapshot domain.StateSnapshot `json:"snapshot"`
+		Snapshot api.StateSnapshot `json:"snapshot"`
 	}
 	if err := json.Unmarshal(body, &res); err != nil {
 		return nil, err
 	}
-	c.sessionID = sessionID
+	c.sessionID = res.Snapshot.SessionID
 	return &res.Snapshot, nil
 }
 
 // AddFaultRule registers a controlled failure for the current session.
-func (c *Client) AddFaultRule(ctx context.Context, rule domain.FaultRule) error {
-	resp, body, err := c.do(ctx, http.MethodPost, "/api/v1/sessions/"+c.sessionID+"/faults", rule, "")
+func (c *Client) AddFaultRule(ctx context.Context, rule api.FaultRule) error {
+	resp, body, err := c.do(ctx, http.MethodPost, c.sessionPath("/faults"), rule, "")
 	if err != nil {
 		return err
 	}
@@ -114,15 +114,15 @@ func (c *Client) AddFaultRule(ctx context.Context, rule domain.FaultRule) error 
 }
 
 // GetState fetches current session state snapshot.
-func (c *Client) GetState(ctx context.Context) (*domain.StateSnapshot, error) {
-	resp, body, err := c.do(ctx, http.MethodGet, "/api/v1/sessions/"+c.sessionID+"/state", nil, "")
+func (c *Client) GetState(ctx context.Context) (*api.StateSnapshot, error) {
+	resp, body, err := c.do(ctx, http.MethodGet, c.sessionPath("/state"), nil, "")
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("get state failed: status %d: %s", resp.StatusCode, string(body))
 	}
-	var snap domain.StateSnapshot
+	var snap api.StateSnapshot
 	if err := json.Unmarshal(body, &snap); err != nil {
 		return nil, err
 	}
@@ -130,8 +130,8 @@ func (c *Client) GetState(ctx context.Context) (*domain.StateSnapshot, error) {
 }
 
 // GetAuditLog retrieves session audit events.
-func (c *Client) GetAuditLog(ctx context.Context) ([]domain.AuditEvent, error) {
-	resp, body, err := c.do(ctx, http.MethodGet, "/api/v1/sessions/"+c.sessionID+"/audit", nil, "")
+func (c *Client) GetAuditLog(ctx context.Context) ([]api.AuditEvent, error) {
+	resp, body, err := c.do(ctx, http.MethodGet, c.sessionPath("/audit"), nil, "")
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (c *Client) GetAuditLog(ctx context.Context) ([]domain.AuditEvent, error) {
 		return nil, fmt.Errorf("get audit failed: status %d: %s", resp.StatusCode, string(body))
 	}
 	var res struct {
-		Events []domain.AuditEvent `json:"events"`
+		Events []api.AuditEvent `json:"events"`
 	}
 	if err := json.Unmarshal(body, &res); err != nil {
 		return nil, err
@@ -149,7 +149,7 @@ func (c *Client) GetAuditLog(ctx context.Context) ([]domain.AuditEvent, error) {
 
 // ResetSession resets session state back to initial state.
 func (c *Client) ResetSession(ctx context.Context) error {
-	resp, body, err := c.do(ctx, http.MethodPost, "/api/v1/sessions/"+c.sessionID+"/reset", nil, "")
+	resp, body, err := c.do(ctx, http.MethodPost, c.sessionPath("/reset"), nil, "")
 	if err != nil {
 		return err
 	}
@@ -160,12 +160,15 @@ func (c *Client) ResetSession(ctx context.Context) error {
 }
 
 // Verify evaluates criteria against current session state.
-func (c *Client) Verify(ctx context.Context, criteria domain.VerificationCriteria) (*domain.VerificationReport, error) {
-	_, body, err := c.do(ctx, http.MethodPost, "/api/v1/sessions/"+c.sessionID+"/verify", criteria, "")
+func (c *Client) Verify(ctx context.Context, criteria api.VerificationCriteria) (*api.VerificationReport, error) {
+	resp, body, err := c.do(ctx, http.MethodPost, c.sessionPath("/verify"), criteria, "")
 	if err != nil {
 		return nil, err
 	}
-	var report domain.VerificationReport
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusExpectationFailed {
+		return nil, fmt.Errorf("verify failed: status %d: %s", resp.StatusCode, string(body))
+	}
+	var report api.VerificationReport
 	if err := json.Unmarshal(body, &report); err != nil {
 		return nil, err
 	}
@@ -173,7 +176,7 @@ func (c *Client) Verify(ctx context.Context, criteria domain.VerificationCriteri
 }
 
 // SearchSlots lists available slots.
-func (c *Client) SearchSlots(ctx context.Context, date, serviceType string) ([]domain.Slot, error) {
+func (c *Client) SearchSlots(ctx context.Context, date, serviceType string) ([]api.Slot, error) {
 	params := url.Values{}
 	if date != "" {
 		params.Set("date", date)
@@ -193,7 +196,7 @@ func (c *Client) SearchSlots(ctx context.Context, date, serviceType string) ([]d
 		return nil, fmt.Errorf("search slots failed: status %d: %s", resp.StatusCode, string(body))
 	}
 	var res struct {
-		Slots []domain.Slot `json:"slots"`
+		Slots []api.Slot `json:"slots"`
 	}
 	if err := json.Unmarshal(body, &res); err != nil {
 		return nil, err
@@ -202,7 +205,7 @@ func (c *Client) SearchSlots(ctx context.Context, date, serviceType string) ([]d
 }
 
 // CreateOrder books an appointment.
-func (c *Client) CreateOrder(ctx context.Context, req service.CreateOrderRequest, idempotencyKey string) (*domain.Order, int, error) {
+func (c *Client) CreateOrder(ctx context.Context, req api.CreateOrderRequest, idempotencyKey string) (*api.Order, int, error) {
 	resp, body, err := c.do(ctx, http.MethodPost, "/api/v1/orders", req, idempotencyKey)
 	if err != nil {
 		return nil, 0, err
@@ -210,7 +213,7 @@ func (c *Client) CreateOrder(ctx context.Context, req service.CreateOrderRequest
 	if resp.StatusCode >= 400 {
 		return nil, resp.StatusCode, fmt.Errorf("create order returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
-	var ord domain.Order
+	var ord api.Order
 	if err := json.Unmarshal(body, &ord); err != nil {
 		return nil, resp.StatusCode, err
 	}
@@ -218,7 +221,7 @@ func (c *Client) CreateOrder(ctx context.Context, req service.CreateOrderRequest
 }
 
 // UpdateOrder reschedules or modifies order.
-func (c *Client) UpdateOrder(ctx context.Context, orderID string, req service.UpdateOrderRequest) (*domain.Order, error) {
+func (c *Client) UpdateOrder(ctx context.Context, orderID string, req api.UpdateOrderRequest) (*api.Order, error) {
 	resp, body, err := c.do(ctx, http.MethodPatch, "/api/v1/orders/"+orderID, req, "")
 	if err != nil {
 		return nil, err
@@ -226,7 +229,7 @@ func (c *Client) UpdateOrder(ctx context.Context, orderID string, req service.Up
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("update order returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
-	var ord domain.Order
+	var ord api.Order
 	if err := json.Unmarshal(body, &ord); err != nil {
 		return nil, err
 	}
@@ -234,7 +237,7 @@ func (c *Client) UpdateOrder(ctx context.Context, orderID string, req service.Up
 }
 
 // CancelOrder cancels an appointment.
-func (c *Client) CancelOrder(ctx context.Context, orderID string) (*domain.Order, error) {
+func (c *Client) CancelOrder(ctx context.Context, orderID string) (*api.Order, error) {
 	resp, body, err := c.do(ctx, http.MethodPost, "/api/v1/orders/"+orderID+"/cancel", nil, "")
 	if err != nil {
 		return nil, err
@@ -242,9 +245,21 @@ func (c *Client) CancelOrder(ctx context.Context, orderID string) (*domain.Order
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("cancel order returned HTTP %d: %s", resp.StatusCode, string(body))
 	}
-	var ord domain.Order
+	var ord api.Order
 	if err := json.Unmarshal(body, &ord); err != nil {
 		return nil, err
 	}
 	return &ord, nil
+}
+
+func normalizeSessionID(id string) string {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return "default"
+	}
+	return id
+}
+
+func (c *Client) sessionPath(suffix string) string {
+	return "/api/v1/sessions/" + url.PathEscape(c.sessionID) + suffix
 }

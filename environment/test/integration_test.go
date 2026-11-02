@@ -82,10 +82,9 @@ func TestOrderLifecycleAndSlotReservation(t *testing.T) {
 
 	// 2. Book order with this slot
 	order, status, err := c.CreateOrder(ctx, service.CreateOrderRequest{
-		ClientID:   "client-001",
-		SlotID:     targetSlot.ID,
-		Address:    "ул. Садовая, 15",
-		TimeWindow: "18:00-19:00",
+		ClientID: "client-001",
+		SlotID:   targetSlot.ID,
+		Address:  "ул. Садовая, 15",
 	}, "")
 	if err != nil || status != 201 {
 		t.Fatalf("create order failed: %v, status %d", err, status)
