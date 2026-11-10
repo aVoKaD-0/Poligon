@@ -1,0 +1,16 @@
+.PHONY: build test race vet bench
+
+build:
+	go build ./...
+
+test:
+	go test ./...
+
+race:
+	go test -race ./...
+
+vet:
+	go vet ./...
+
+bench:
+	go test -run '^$$' -bench . -benchmem ./...

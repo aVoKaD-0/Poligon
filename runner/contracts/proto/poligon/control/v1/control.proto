@@ -1,0 +1,20 @@
+syntax = "proto3";
+package poligon.control.v1;
+option go_package = "github.com/poligon/platform/gen/controlv1";
+message ExecutionContext { string project_id=1; string run_id=2; string session_id=3; uint32 attempt_no=4; }
+message LeaseRequest { ExecutionContext context=1; string worker_id=2; string dispatch_id=3; string evaluation_id=4; string lease_id=5; }
+message LeaseResponse { bool accepted=1; string reason=2; string lease_id=3; string lease_expires_at=4; bool cancel_requested=5; string runtime_plan_ref=6; string runtime_plan_sha256=7; bytes runtime_plan_json=8; map<string,string> runtime_credentials=9; bytes evaluation_definition_json=10; string evaluation_version_id=11; string evaluation_definition_sha256=12; }
+message PlanRequest { ExecutionContext context=1; string worker_id=2; string lease_id=3; string evaluation_id=4; string runtime_plan_ref=5; string runtime_plan_sha256=6; }
+message ArtifactRef { string artifact_id=1; string sha256=2; int64 size_bytes=3; string mime=4; string kind=5; }
+message ArtifactRequest { ExecutionContext context=1; string worker_id=2; string lease_id=3; string evaluation_id=4; string upload_id=5; string producer=6; string kind=7; string object_key=8; int64 size_bytes=9; string sha256=10; string mime=11; ArtifactRef artifact_ref=12; }
+message ArtifactResponse { string upload_id=1; string object_key=2; string signed_url=3; map<string,string> required_headers=4; string expires_at=5; ArtifactRef artifact_ref=6; }
+service ControlService {
+ rpc ClaimExecution(LeaseRequest) returns (LeaseResponse);
+ rpc HeartbeatExecution(LeaseRequest) returns (LeaseResponse);
+ rpc ClaimEvaluation(LeaseRequest) returns (LeaseResponse);
+ rpc HeartbeatEvaluation(LeaseRequest) returns (LeaseResponse);
+ rpc GetRuntimePlan(PlanRequest) returns (LeaseResponse);
+ rpc PrepareArtifactUpload(ArtifactRequest) returns (ArtifactResponse);
+ rpc RegisterArtifact(ArtifactRequest) returns (ArtifactResponse);
+ rpc ResolveArtifact(ArtifactRequest) returns (ArtifactResponse);
+}

@@ -1,0 +1,30 @@
+# Documentation tracked in Runner
+!/docs/
+!/docs/*.md
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Development artifacts
+*.exe
+*.test
+*.prof
+*.out
+/bin/
+/dist/
+
+# Local diagnostics and backups
+*.log
+*.tmp
+*.bak
+*.swp
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Local editor settings
+.idea/
+.vscode/

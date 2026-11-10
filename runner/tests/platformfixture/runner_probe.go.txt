@@ -1,0 +1,73 @@
+package platform
+
+import (
+	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/minio/minio-go/v7"
+)
+
+func TestPoligonRunnerLiveProbe(t *testing.T) {
+	probe := os.Getenv("POLIGON_RUNNER_PROBE_BIN")
+	if probe == "" {
+		t.Fatal("POLIGON_RUNNER_PROBE_BIN required")
+	}
+	f := newFixture(t)
+	run := f.start(t)
+	var raw []byte
+	if err := f.a.DB.Pool.QueryRow(t.Context(), "SELECT payload FROM outbox WHERE payload->>'run_id'=$1 AND subject='poligon.cmd.session.execute.v1'", str(run, "run_id")).Scan(&raw); err != nil {
+		t.Fatal(err)
+	}
+	var storage string
+	if endpoint := os.Getenv("POLIGON_MINIO_TEST_ENDPOINT"); endpoint != "" {
+		f.a.Config.S3Endpoint = endpoint
+		f.a.Config.S3PublicEndpoint = endpoint
+		f.a.Config.S3AccessKey = os.Getenv("POLIGON_MINIO_TEST_ACCESS_KEY")
+		f.a.Config.S3SecretKey = os.Getenv("POLIGON_MINIO_TEST_SECRET_KEY")
+		f.a.Config.S3Bucket = "runner-test-" + ID()
+		store, err := NewArtifactStore(f.a.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = store.Client.MakeBucket(t.Context(), store.Bucket, minio.MakeBucketOptions{}); err != nil {
+			t.Fatal(err)
+		}
+		f.a.Store, storage = store, endpoint
+	} else {
+		f.a.Store = fakeS3(t)
+		storage = f.a.Store.Signer.EndpointURL().Host
+	}
+	job := filepath.Join(t.TempDir(), "job.json")
+	if err := os.WriteFile(job, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	const token = "runner-probe-local-fixture-only-token"
+	f.a.Config.ServiceTokens = map[string]string{"runner": token}
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grpc, err := f.a.GRPCServer()
+	if err != nil {
+		listener.Close()
+		t.Fatal(err)
+	}
+	go grpc.Serve(listener)
+	defer grpc.Stop()
+	cmd := exec.CommandContext(t.Context(), probe, "-test.v", "-test.run=^TestLivePlatformControlAndArtifact$")
+	cmd.Env = append(os.Environ(),
+		"POLIGON_PROBE_JOB="+job,
+		"POLIGON_PROBE_CONTROL="+listener.Addr().String(),
+		"POLIGON_PROBE_TOKEN="+token,
+		"POLIGON_PROBE_STORAGE="+storage,
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil || !strings.Contains(string(output), "--- PASS: TestLivePlatformControlAndArtifact") {
+		t.Fatalf("Runner probe: %v\n%s", err, output)
+	}
+	t.Logf("Runner used real Platform Control and storage %s\n%s", storage, output)
+}
