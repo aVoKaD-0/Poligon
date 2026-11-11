@@ -1,0 +1,63 @@
+{
+  "$defs": {
+    "Grade": {
+      "additionalProperties": false,
+      "properties": {
+        "criterion": {
+          "enum": [
+            "clarity",
+            "coherence",
+            "appropriateness"
+          ],
+          "title": "Criterion",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Score",
+          "type": "integer"
+        },
+        "reason": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "event_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1,
+          "title": "Event Indices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "criterion",
+        "score",
+        "reason",
+        "event_indices"
+      ],
+      "title": "Grade",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "grades": {
+      "items": {
+        "$ref": "#/$defs/Grade"
+      },
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Grades",
+      "type": "array"
+    }
+  },
+  "required": [
+    "grades"
+  ],
+  "title": "QualityOutput",
+  "type": "object"
+}

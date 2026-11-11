@@ -1,0 +1,430 @@
+{
+  "$defs": {
+    "Expected": {
+      "additionalProperties": false,
+      "properties": {
+        "active_count": {
+          "minimum": 0,
+          "title": "Active Count",
+          "type": "integer"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maxLength": 24000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "time_window": {
+          "anyOf": [
+            {
+              "maxLength": 24000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Window"
+        },
+        "target_order_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Order Id"
+        },
+        "target_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "active",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Status"
+        }
+      },
+      "required": [
+        "active_count"
+      ],
+      "title": "Expected",
+      "type": "object"
+    },
+    "Order": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "client_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Client Id",
+          "type": "string"
+        },
+        "address": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Address",
+          "type": "string"
+        },
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Date",
+          "type": "string"
+        },
+        "time_window": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Time Window",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "cancelled",
+            "completed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "session_id",
+        "client_id",
+        "address",
+        "date",
+        "time_window",
+        "status"
+      ],
+      "title": "Order",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "origin": {
+          "default": "manual",
+          "enum": [
+            "manual",
+            "seeded",
+            "model"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": true,
+      "properties": {
+        "session_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "clients": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Clients",
+          "type": "object"
+        },
+        "slots": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Slots",
+          "type": "object"
+        },
+        "orders": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Order"
+          },
+          "title": "Orders",
+          "type": "object"
+        },
+        "active_orders_count": {
+          "minimum": 0,
+          "title": "Active Orders Count",
+          "type": "integer"
+        },
+        "total_orders_count": {
+          "minimum": 0,
+          "title": "Total Orders Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id",
+        "clients",
+        "slots",
+        "orders",
+        "active_orders_count",
+        "total_orders_count"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "intent": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Intent",
+          "type": "string"
+        },
+        "utterances": {
+          "items": {
+            "maxLength": 24000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Utterances",
+          "type": "array"
+        },
+        "requires_question": {
+          "default": false,
+          "title": "Requires Question",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "intent",
+        "utterances"
+      ],
+      "title": "Step",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 24000,
+      "minLength": 1,
+      "title": "Id",
+      "type": "string"
+    },
+    "version": {
+      "maxLength": 24000,
+      "minLength": 1,
+      "title": "Version",
+      "type": "string"
+    },
+    "family": {
+      "maxLength": 24000,
+      "minLength": 1,
+      "title": "Family",
+      "type": "string"
+    },
+    "goal": {
+      "maxLength": 24000,
+      "minLength": 1,
+      "title": "Goal",
+      "type": "string"
+    },
+    "client_id": {
+      "maxLength": 24000,
+      "minLength": 1,
+      "title": "Client Id",
+      "type": "string"
+    },
+    "initial": {
+      "$ref": "#/$defs/Snapshot"
+    },
+    "expected": {
+      "$ref": "#/$defs/Expected"
+    },
+    "constraints": {
+      "items": {
+        "maxLength": 24000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Constraints",
+      "type": "array"
+    },
+    "allowed_outcomes": {
+      "items": {
+        "maxLength": 24000,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Allowed Outcomes",
+      "type": "array"
+    },
+    "termination": {
+      "const": "script_exhausted",
+      "default": "script_exhausted",
+      "title": "Termination",
+      "type": "string"
+    },
+    "protected_order_fields": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Protected Order Fields",
+      "type": "array"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Steps",
+      "type": "array"
+    },
+    "max_turns": {
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Max Turns",
+      "type": "integer"
+    },
+    "fault_rules": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Fault Rules",
+      "type": "array"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    }
+  },
+  "required": [
+    "id",
+    "version",
+    "family",
+    "goal",
+    "client_id",
+    "initial",
+    "expected",
+    "constraints",
+    "allowed_outcomes",
+    "steps",
+    "max_turns"
+  ],
+  "title": "Scenario",
+  "type": "object"
+}

@@ -1,0 +1,10 @@
+{
+  "known_defects": [],
+  "findings": [],
+  "finding_labels": [],
+  "human_scores": [
+    {"case_id":"DEMONSTRATION-ONLY", "criterion":"clarity", "score":4,
+     "reviewer_id":"DEMONSTRATION-NOT-A-PERSON", "independent":false, "demonstration":true}
+  ],
+  "repeats": []
+}

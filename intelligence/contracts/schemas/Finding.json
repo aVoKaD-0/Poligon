@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "json_pointer": {
+          "pattern": "^(/.*)?$",
+          "title": "Json Pointer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "json_pointer"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "family": {
+      "title": "Family",
+      "type": "string"
+    },
+    "rule_id": {
+      "title": "Rule Id",
+      "type": "string"
+    },
+    "expected": {
+      "title": "Expected"
+    },
+    "actual": {
+      "title": "Actual"
+    },
+    "reason": {
+      "title": "Reason",
+      "type": "string"
+    },
+    "evidence": {
+      "items": {
+        "$ref": "#/$defs/Evidence"
+      },
+      "title": "Evidence",
+      "type": "array"
+    }
+  },
+  "required": [
+    "finding_id",
+    "case_id",
+    "family",
+    "rule_id",
+    "expected",
+    "actual",
+    "reason",
+    "evidence"
+  ],
+  "title": "Finding",
+  "type": "object"
+}

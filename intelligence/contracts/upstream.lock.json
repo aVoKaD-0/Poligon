@@ -1,0 +1,42 @@
+[
+  {
+    "commit": "2fe2700620c946e236377c79886e511743d7608c",
+    "path": "platform/contracts/schemas/assessment.json",
+    "sha256": "7e3d0bdba2aee1b3bd7209ffecaadc55adde9be5cfc05ac4a57619638a81ebf4"
+  },
+  {
+    "commit": "2fe2700620c946e236377c79886e511743d7608c",
+    "path": "platform/contracts/schemas/scenario.json",
+    "sha256": "21c58ec545f9fcfdd3d405d68c635716afc9ec8e50ee82d727d997d02ee738a4"
+  },
+  {
+    "commit": "2fe2700620c946e236377c79886e511743d7608c",
+    "path": "platform/contracts/schemas/execution-manifest.json",
+    "sha256": "47f3212829252533edc1dcd29b365bd0671de3d5bd0620b5966ffd05ff3d78ba"
+  },
+  {
+    "commit": "2fe2700620c946e236377c79886e511743d7608c",
+    "path": "platform/contracts/schemas/artifact-ref.json",
+    "sha256": "9b50e6d37244cc9e040e26945afb76f31e32734f4ebc35e0908f3bd9e3e235b4"
+  },
+  {
+    "commit": "2fe2700620c946e236377c79886e511743d7608c",
+    "path": "platform/contracts/proto/poligon/control/v1/control.proto",
+    "sha256": "24cfa4784decc869e6d5544a846931856528e68af54c82e2a8e74277873e5db3"
+  },
+  {
+    "commit": "2fe2700620c946e236377c79886e511743d7608c",
+    "path": "platform/contracts/proto/validation.proto",
+    "sha256": "c37ef32f2cc3fc3b2cce944fdade220d7fab2780132626634ddb0c936fa36a9c"
+  },
+  {
+    "commit": "75f2454a5ebdf8527fc316c51f9003599d301389",
+    "path": "runner/contracts/proto/poligon/control/v1/control.proto",
+    "sha256": "9e47decc2984f5a23e0f61b91e76e9c4a4db1b330384641ec71dd28d8a532845"
+  },
+  {
+    "commit": "c9932fea7eca48d6fccb2e06a997478c8c59da62",
+    "path": "environment/pkg/api/models.go",
+    "sha256": "dd8b91f851ca7a0a2f9bfd6b270276de224cb06ec30e2f9d727a2599f590ebeb"
+  }
+]

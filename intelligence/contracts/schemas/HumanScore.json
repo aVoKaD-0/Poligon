@@ -1,0 +1,46 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {
+      "title": "Case Id",
+      "type": "string"
+    },
+    "criterion": {
+      "enum": [
+        "clarity",
+        "coherence",
+        "appropriateness"
+      ],
+      "title": "Criterion",
+      "type": "string"
+    },
+    "score": {
+      "maximum": 5,
+      "minimum": 1,
+      "title": "Score",
+      "type": "integer"
+    },
+    "reviewer_id": {
+      "title": "Reviewer Id",
+      "type": "string"
+    },
+    "independent": {
+      "title": "Independent",
+      "type": "boolean"
+    },
+    "demonstration": {
+      "default": false,
+      "title": "Demonstration",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "case_id",
+    "criterion",
+    "score",
+    "reviewer_id",
+    "independent"
+  ],
+  "title": "HumanScore",
+  "type": "object"
+}

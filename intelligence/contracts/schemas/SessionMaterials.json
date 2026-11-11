@@ -1,0 +1,663 @@
+{
+  "$defs": {
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "content": {
+          "maxLength": 16777216,
+          "title": "Content",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "sha256",
+        "content"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "Expected": {
+      "additionalProperties": false,
+      "properties": {
+        "active_count": {
+          "minimum": 0,
+          "title": "Active Count",
+          "type": "integer"
+        },
+        "address": {
+          "anyOf": [
+            {
+              "maxLength": 24000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Address"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "time_window": {
+          "anyOf": [
+            {
+              "maxLength": 24000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Time Window"
+        },
+        "target_order_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Order Id"
+        },
+        "target_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "active",
+                "cancelled"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Status"
+        }
+      },
+      "required": [
+        "active_count"
+      ],
+      "title": "Expected",
+      "type": "object"
+    },
+    "Order": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "session_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "client_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Client Id",
+          "type": "string"
+        },
+        "address": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Address",
+          "type": "string"
+        },
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "title": "Date",
+          "type": "string"
+        },
+        "time_window": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Time Window",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "cancelled",
+            "completed"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "session_id",
+        "client_id",
+        "address",
+        "date",
+        "time_window",
+        "status"
+      ],
+      "title": "Order",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "origin": {
+          "default": "manual",
+          "enum": [
+            "manual",
+            "seeded",
+            "model"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Id"
+        },
+        "seed": {
+          "anyOf": [
+            {
+              "maximum": 9007199254740991,
+              "minimum": -9007199254740991,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "settings": {
+          "additionalProperties": true,
+          "title": "Settings",
+          "type": "object"
+        },
+        "prompt_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Prompt Version"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Scenario": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "family": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Family",
+          "type": "string"
+        },
+        "goal": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Goal",
+          "type": "string"
+        },
+        "client_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Client Id",
+          "type": "string"
+        },
+        "initial": {
+          "$ref": "#/$defs/Snapshot"
+        },
+        "expected": {
+          "$ref": "#/$defs/Expected"
+        },
+        "constraints": {
+          "items": {
+            "maxLength": 24000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Constraints",
+          "type": "array"
+        },
+        "allowed_outcomes": {
+          "items": {
+            "maxLength": 24000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Allowed Outcomes",
+          "type": "array"
+        },
+        "termination": {
+          "const": "script_exhausted",
+          "default": "script_exhausted",
+          "title": "Termination",
+          "type": "string"
+        },
+        "protected_order_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Protected Order Fields",
+          "type": "array"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "title": "Steps",
+          "type": "array"
+        },
+        "max_turns": {
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Turns",
+          "type": "integer"
+        },
+        "fault_rules": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Fault Rules",
+          "type": "array"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "family",
+        "goal",
+        "client_id",
+        "initial",
+        "expected",
+        "constraints",
+        "allowed_outcomes",
+        "steps",
+        "max_turns"
+      ],
+      "title": "Scenario",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Project Id",
+          "type": "string"
+        },
+        "run_id": {
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "session_id": {
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "attempt_no": {
+          "maximum": 4294967295,
+          "minimum": 1,
+          "title": "Attempt No",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "project_id",
+        "run_id",
+        "session_id",
+        "attempt_no"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "Snapshot": {
+      "additionalProperties": true,
+      "properties": {
+        "session_id": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Session Id",
+          "type": "string"
+        },
+        "clients": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Clients",
+          "type": "object"
+        },
+        "slots": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Slots",
+          "type": "object"
+        },
+        "orders": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Order"
+          },
+          "title": "Orders",
+          "type": "object"
+        },
+        "active_orders_count": {
+          "minimum": 0,
+          "title": "Active Orders Count",
+          "type": "integer"
+        },
+        "total_orders_count": {
+          "minimum": 0,
+          "title": "Total Orders Count",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id",
+        "clients",
+        "slots",
+        "orders",
+        "active_orders_count",
+        "total_orders_count"
+      ],
+      "title": "Snapshot",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "intent": {
+          "maxLength": 24000,
+          "minLength": 1,
+          "title": "Intent",
+          "type": "string"
+        },
+        "utterances": {
+          "items": {
+            "maxLength": 24000,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Utterances",
+          "type": "array"
+        },
+        "requires_question": {
+          "default": false,
+          "title": "Requires Question",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "intent",
+        "utterances"
+      ],
+      "title": "Step",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "context": {
+      "$ref": "#/$defs/Scope"
+    },
+    "evaluation_id": {
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Evaluation Id",
+      "type": "string"
+    },
+    "evaluator_version_id": {
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Evaluator Version Id",
+      "type": "string"
+    },
+    "manifest_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Manifest Sha256",
+      "type": "string"
+    },
+    "scenario": {
+      "$ref": "#/$defs/Scenario"
+    },
+    "environment_session_id": {
+      "maxLength": 24000,
+      "minLength": 1,
+      "title": "Environment Session Id",
+      "type": "string"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Artifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "journal": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Artifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "audit": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Artifact"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "audit_complete": {
+      "default": false,
+      "title": "Audit Complete",
+      "type": "boolean"
+    },
+    "snapshot_finalized": {
+      "default": false,
+      "title": "Snapshot Finalized",
+      "type": "boolean"
+    },
+    "journal_complete": {
+      "default": false,
+      "title": "Journal Complete",
+      "type": "boolean"
+    },
+    "expected_session_seqs": {
+      "anyOf": [
+        {
+          "items": {
+            "minimum": 1,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Session Seqs"
+    },
+    "simulation_validity": {
+      "default": "unknown",
+      "enum": [
+        "valid",
+        "invalid",
+        "unknown"
+      ],
+      "title": "Simulation Validity",
+      "type": "string"
+    },
+    "infrastructure_error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Infrastructure Error"
+    },
+    "duration_ms": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Duration Ms"
+    },
+    "cost_minor": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cost Minor"
+    },
+    "currency": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Currency"
+    }
+  },
+  "required": [
+    "context",
+    "evaluation_id",
+    "evaluator_version_id",
+    "manifest_sha256",
+    "scenario",
+    "environment_session_id"
+  ],
+  "title": "SessionMaterials",
+  "type": "object"
+}
