@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Artifact Id",
+          "type": "string"
+        },
+        "json_pointer": {
+          "pattern": "^(/.*)?$",
+          "title": "Json Pointer",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "json_pointer"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "family": {
+          "title": "Family",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        },
+        "expected": {
+          "title": "Expected"
+        },
+        "actual": {
+          "title": "Actual"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        }
+      },
+      "required": [
+        "finding_id",
+        "case_id",
+        "family",
+        "rule_id",
+        "expected",
+        "actual",
+        "reason",
+        "evidence"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "FindingLabel": {
+      "additionalProperties": false,
+      "properties": {
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "is_defect": {
+          "title": "Is Defect",
+          "type": "boolean"
+        },
+        "reviewer_id": {
+          "title": "Reviewer Id",
+          "type": "string"
+        },
+        "independent": {
+          "title": "Independent",
+          "type": "boolean"
+        },
+        "demonstration": {
+          "default": false,
+          "title": "Demonstration",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "finding_id",
+        "is_defect",
+        "reviewer_id",
+        "independent"
+      ],
+      "title": "FindingLabel",
+      "type": "object"
+    },
+    "HumanScore": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "criterion": {
+          "enum": [
+            "clarity",
+            "coherence",
+            "appropriateness"
+          ],
+          "title": "Criterion",
+          "type": "string"
+        },
+        "score": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Score",
+          "type": "integer"
+        },
+        "reviewer_id": {
+          "title": "Reviewer Id",
+          "type": "string"
+        },
+        "independent": {
+          "title": "Independent",
+          "type": "boolean"
+        },
+        "demonstration": {
+          "default": false,
+          "title": "Demonstration",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "case_id",
+        "criterion",
+        "score",
+        "reviewer_id",
+        "independent"
+      ],
+      "title": "HumanScore",
+      "type": "object"
+    },
+    "KnownDefect": {
+      "additionalProperties": false,
+      "properties": {
+        "defect_id": {
+          "title": "Defect Id",
+          "type": "string"
+        },
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "family": {
+          "title": "Family",
+          "type": "string"
+        },
+        "rule_id": {
+          "title": "Rule Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "defect_id",
+        "case_id",
+        "family",
+        "rule_id"
+      ],
+      "title": "KnownDefect",
+      "type": "object"
+    },
+    "Repeat": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "repeat_id": {
+          "title": "Repeat Id",
+          "type": "string"
+        },
+        "verdict": {
+          "enum": [
+            "pass",
+            "fail",
+            "inconclusive"
+          ],
+          "title": "Verdict",
+          "type": "string"
+        },
+        "model_scores": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Model Scores",
+          "type": "object"
+        },
+        "duration_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Duration Ms"
+        },
+        "cost_minor": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cost Minor"
+        },
+        "currency": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Currency"
+        }
+      },
+      "required": [
+        "case_id",
+        "repeat_id",
+        "verdict"
+      ],
+      "title": "Repeat",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "known_defects": {
+      "items": {
+        "$ref": "#/$defs/KnownDefect"
+      },
+      "title": "Known Defects",
+      "type": "array"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "finding_labels": {
+      "items": {
+        "$ref": "#/$defs/FindingLabel"
+      },
+      "title": "Finding Labels",
+      "type": "array"
+    },
+    "human_scores": {
+      "items": {
+        "$ref": "#/$defs/HumanScore"
+      },
+      "title": "Human Scores",
+      "type": "array"
+    },
+    "repeats": {
+      "items": {
+        "$ref": "#/$defs/Repeat"
+      },
+      "title": "Repeats",
+      "type": "array"
+    }
+  },
+  "title": "Measurements",
+  "type": "object"
+}

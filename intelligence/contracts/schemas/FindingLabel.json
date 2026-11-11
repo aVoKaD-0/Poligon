@@ -1,0 +1,34 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "finding_id": {
+      "title": "Finding Id",
+      "type": "string"
+    },
+    "is_defect": {
+      "title": "Is Defect",
+      "type": "boolean"
+    },
+    "reviewer_id": {
+      "title": "Reviewer Id",
+      "type": "string"
+    },
+    "independent": {
+      "title": "Independent",
+      "type": "boolean"
+    },
+    "demonstration": {
+      "default": false,
+      "title": "Demonstration",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "finding_id",
+    "is_defect",
+    "reviewer_id",
+    "independent"
+  ],
+  "title": "FindingLabel",
+  "type": "object"
+}

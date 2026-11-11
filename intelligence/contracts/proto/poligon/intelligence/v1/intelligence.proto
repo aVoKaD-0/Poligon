@@ -1,0 +1,63 @@
+syntax = "proto3";
+package poligon.intelligence.v1;
+option go_package = "github.com/poligon/intelligence/gen/intelligencev1";
+
+import "poligon/control/v1/control.proto";
+import "google/protobuf/struct.proto";
+
+// PROPOSAL: provider-owned text MVP. Not yet approved or connected by Go services.
+// JSON bytes are UTF-8, schema_version=1 and governed by contracts/schemas/*.json.
+// Every call needs a deadline and Bearer service metadata. Reuse the exact payload
+// on retry. Identity is scope (including attempt) + operation identity below.
+message OpenSimulationRequest {
+  poligon.control.v1.ExecutionContext context = 1;
+  string request_id = 2;
+  bytes scenario_json = 3;
+  sint64 seed = 4;
+  string mode = 5; // scripted | model
+}
+message OpenSimulationResponse {
+  string simulation_id = 1;
+  string capability_version = 2;
+  string seed_support = 3;
+}
+message NextClientActionRequest {
+  poligon.control.v1.ExecutionContext context = 1;
+  string request_id = 2;
+  string simulation_id = 3;
+  uint32 step = 4; // zero based; identity is simulation_id + step, not request_id
+  repeated string agent_messages = 5; // last exchange only, max 16 / 24 KiB
+}
+message NextClientActionResponse {
+  string simulation_id = 1;
+  uint32 step = 2;
+  string action = 3; // say | finish
+  string text = 4;
+  string intent = 5;
+  string reason = 6;
+  bytes metadata_json = 7;
+}
+message CloseSimulationRequest {
+  poligon.control.v1.ExecutionContext context = 1;
+  string request_id = 2;
+  string simulation_id = 3;
+}
+message CloseSimulationResponse { bool closed = 1; }
+message EvaluateSessionRequest {
+  poligon.control.v1.ExecutionContext context = 1;
+  string request_id = 2;
+  bytes materials_json = 3; // SessionMaterials, scope must equal context
+  bool quality = 4; // optional subjective model scores; cannot override facts
+}
+message EvaluateSessionResponse {
+  bytes assessment_json = 1; // exact upstream Platform assessment schema
+}
+service IntelligenceService {
+  rpc OpenSimulation(OpenSimulationRequest) returns (OpenSimulationResponse);
+  rpc NextClientAction(NextClientActionRequest) returns (NextClientActionResponse);
+  rpc CloseSimulation(CloseSimulationRequest) returns (CloseSimulationResponse);
+  rpc EvaluateSession(EvaluateSessionRequest) returns (EvaluateSessionResponse);
+  // Explicit opt-in Platform struct-proposal subset, NOT an approved common API.
+  rpc ValidateScenario(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc GetCapabilities(google.protobuf.Struct) returns (google.protobuf.Struct);
+}
