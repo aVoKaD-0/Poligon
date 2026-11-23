@@ -247,3 +247,18 @@ func TestRegressionSlotAndOrderDateConsistency(t *testing.T) {
 		t.Fatalf("accepted inconsistent booking: order date=%s time=%s, reserved slot date=%s time=%s-%s", ord.Date, ord.TimeWindow, slot.Date, slot.StartTime, slot.EndTime)
 	}
 }
+
+func TestStandaloneReinitializationRestoresBaseline(t *testing.T) {
+	server, manager := setupTestServer()
+	defer server.Close()
+	for i := 0; i < 2; i++ {
+		status, body := requestJSON(t, server.URL, "POST", "/api/v1/sessions", "legacy", `{"session_id":"legacy","clients":[{"id":"a"}],"slots":[]}`)
+		if status != 201 || manager.GetOrCreate("legacy").GetSnapshot().TotalOrdersCount != 0 {
+			t.Fatalf("init %d: %d %s", i, status, body)
+		}
+		status, body = requestJSON(t, server.URL, "POST", "/api/v1/orders", "legacy", `{"client_id":"a","address":"A","date":"2026-11-20"}`)
+		if status != 201 {
+			t.Fatal(status, string(body))
+		}
+	}
+}

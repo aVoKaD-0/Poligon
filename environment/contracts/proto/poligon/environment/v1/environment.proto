@@ -1,0 +1,25 @@
+syntax = "proto3";
+package poligon.environment.v1;
+option go_package = "poligon/environment/gen/environmentv1";
+import "google/protobuf/struct.proto";
+import "poligon/control/v1/control.proto";
+
+service EnvironmentService {
+  rpc ValidateTemplate(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc GetCapabilities(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc FinalizeAttempt(FinalizeAttemptRequest) returns (FinalizeAttemptResponse);
+}
+
+message FinalizeAttemptRequest {
+  poligon.control.v1.ExecutionContext context = 1;
+  string environment_session_id = 2;
+}
+
+message FinalizeAttemptResponse {
+  poligon.control.v1.ExecutionContext context = 1;
+  string environment_session_id = 2;
+  poligon.control.v1.ArtifactRef snapshot_ref = 3;
+  poligon.control.v1.ArtifactRef audit_ref = 4;
+  bool snapshot_finalized = 5;
+  bool audit_complete = 6;
+}

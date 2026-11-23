@@ -1,0 +1,25 @@
+{
+  "context": {
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "run_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003",
+    "attempt_no": 1
+  },
+  "environment_session_id": "crm-1",
+  "snapshot_ref": {
+    "artifact_id": "00000000-0000-4000-8000-000000000001",
+    "sha256": "98f470acc6aabb8d47deee8612455b7b894c5a46ef719919d6ec1a21d28ad1c9",
+    "size_bytes": "690",
+    "mime": "application/json",
+    "kind": "environment_snapshot"
+  },
+  "audit_ref": {
+    "artifact_id": "00000000-0000-4000-8000-000000000002",
+    "sha256": "a9d8a0f9292e57498784d635a877c08d0c8f64d403dbf0bed08dc4c3c800bd7c",
+    "size_bytes": "2239",
+    "mime": "application/x-ndjson",
+    "kind": "environment_audit"
+  },
+  "snapshot_finalized": true,
+  "audit_complete": true
+}

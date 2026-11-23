@@ -1,0 +1,26 @@
+{
+  "context": {
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "run_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003",
+    "attempt_no": 1
+  },
+  "session_id": "crm-1",
+  "clients": [
+    {
+      "id": "client-001",
+      "name": "Тестовый клиент"
+    }
+  ],
+  "slots": [],
+  "fault_rules": [
+    {
+      "fault_type": "timeout_after_save",
+      "method": "POST",
+      "path_pattern": "/api/v1/orders",
+      "http_status": 504,
+      "delay_ms": 30,
+      "max_triggers": 1
+    }
+  ]
+}

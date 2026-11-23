@@ -1,0 +1,174 @@
+package platform
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/minio/minio-go/v7"
+)
+
+// This file is compiled only in a temporary checkout of the pinned Platform.
+// Platform's test fixture provisions a disposable DB and creates a leased attempt.
+func TestEnvironmentProvider(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	cfg := &f.a.Config
+	cfg.S3Endpoint = os.Getenv("TEST_S3_ENDPOINT")
+	cfg.S3PublicEndpoint = cfg.S3Endpoint
+	cfg.S3AccessKey = os.Getenv("TEST_S3_ACCESS_KEY")
+	cfg.S3SecretKey = os.Getenv("TEST_S3_SECRET_KEY")
+	cfg.S3Bucket = "env-test-" + ID()
+	token := ID()
+	cfg.ServiceTokens = map[string]string{"environment": token}
+	objects, err := NewArtifactStore(*cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.a.Store = objects
+	if err = objects.Client.MakeBucket(ctx, cfg.S3Bucket, minio.MakeBucketOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		for o := range objects.Client.ListObjects(ctx, cfg.S3Bucket, minio.ListObjectsOptions{Recursive: true}) {
+			if o.Err != nil {
+				t.Error(o.Err)
+				break
+			}
+			if err := objects.Client.RemoveObject(ctx, cfg.S3Bucket, o.Key, minio.RemoveObjectOptions{}); err != nil {
+				t.Error(err)
+			}
+		}
+		if err := objects.Client.RemoveBucket(ctx, cfg.S3Bucket); err != nil {
+			t.Error(err)
+		}
+	})
+	server, err := f.a.GRPCServer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Stop()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go server.Serve(l)
+	platformToken, runnerToken := ID(), ID()
+	child := exec.CommandContext(t.Context(), os.Getenv("ENVIRONMENT_SERVER_BINARY"))
+	child.Env = []string{"ENVIRONMENT_MODE=integration", "ENVIRONMENT_HTTP_ADDR=127.0.0.1:0", "ENVIRONMENT_GRPC_ADDR=127.0.0.1:0", "PLATFORM_SERVICE_TOKEN=" + platformToken, "RUNNER_SERVICE_TOKEN=" + runnerToken, "ENVIRONMENT_CONTROL_ADDR=" + l.Addr().String(), "ENVIRONMENT_CONTROL_TOKEN=" + token}
+	logs, err := child.StderrPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = child.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { child.Process.Signal(os.Interrupt); child.Wait() }()
+	addresses := make(chan string, 2)
+	go func() {
+		defer close(addresses)
+		scan := bufio.NewScanner(logs)
+		for scan.Scan() {
+			line := scan.Text()
+			if strings.Contains(line, "listening on ") {
+				addresses <- line
+			}
+		}
+	}()
+	var httpAddr, rpcAddr string
+	for httpAddr == "" || rpcAddr == "" {
+		select {
+		case line, ok := <-addresses:
+			if !ok {
+				t.Fatal("Environment exited before startup")
+			}
+			fields := strings.Fields(line)
+			addr := fields[len(fields)-1]
+			if strings.Contains(line, "HTTP listening") {
+				httpAddr = addr
+			} else if strings.Contains(line, "gRPC listening") {
+				rpcAddr = addr
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("Environment failed to start")
+		}
+	}
+	conn, err := ValidatorConnection(*cfg, rpcAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	validators := RemoteValidators{Environment: conn, Token: platformToken}
+	for _, v := range []struct{ method, file string }{{"ValidateTemplate", "validate-request.json"}, {"GetCapabilities", "capabilities-request.json"}} {
+		b, err := os.ReadFile(filepath.Join(os.Getenv("ENVIRONMENT_PROBE_DIR"), "../../contracts/fixtures", v.file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		out, err := validators.call(ctx, conn, "/poligon.environment.v1.EnvironmentService/"+v.method, obj(b))
+		if err != nil {
+			t.Fatal(v.method, err)
+		}
+		if v.method == "GetCapabilities" && out["supported"] != true {
+			t.Fatal("unsupported catalog entry", out)
+		}
+	}
+	_, _, lease := claimFixture(t, f)
+	scope := lease.Context
+	data, err := json.Marshal(contextMap(scope))
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func(expired string) {
+		cmd := exec.Command(os.Getenv("ENVIRONMENT_PROBE_BINARY"), "-test.v", "-test.run=^TestPublishedControl$")
+		cmd.Dir = os.Getenv("ENVIRONMENT_PROBE_DIR")
+		cmd.Env = []string{"ENVIRONMENT_TEST_CONTEXT=" + string(data), "ENVIRONMENT_GRPC_ADDR=" + rpcAddr, "ENVIRONMENT_HTTP_ADDR=" + httpAddr, "RUNNER_SERVICE_TOKEN=" + runnerToken, "ENVIRONMENT_TEST_EXPIRED=" + expired}
+		if b, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("Environment client: %v\n%s", err, b)
+		}
+	}
+	run("0")
+	rows, err := f.a.DB.Pool.Query(ctx, "SELECT kind,object_key,size_bytes,sha256 FROM artifact_index WHERE session_id=$1 AND producer='environment'", scope.SessionId)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs := map[string]bool{}
+	for rows.Next() {
+		var kind, key, sha string
+		var n int64
+		if err = rows.Scan(&kind, &key, &n, &sha); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = objects.read(ctx, key, n, sha); err != nil {
+			t.Fatal(err)
+		}
+		if refs[kind] {
+			t.Fatalf("duplicate %s", kind)
+		}
+		refs[kind] = true
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(refs) != 2 || !refs["environment_snapshot"] || !refs["environment_audit"] {
+		t.Fatal("invalid artifact set", refs)
+	}
+	_, _, expiredLease := claimFixture(t, f)
+	scope = expiredLease.Context
+	data, err = json.Marshal(contextMap(scope))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.a.DB.Pool.Exec(ctx, "UPDATE execution_attempts SET lease_expiry=now()-interval '1 second' WHERE session_id=$1", scope.SessionId); err != nil {
+		t.Fatal(err)
+	}
+	run("1")
+}

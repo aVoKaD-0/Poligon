@@ -230,3 +230,7 @@ curl -X POST http://localhost:8081/api/v1/sessions/test-run-1/verify \
 ---
 
 [О проекте](../README.md)
+
+## Интеграция с Platform и Runner
+
+Профиль HTTP + gRPC, привязка CRM к попытке, сервер валидации, регистрация артефактов и проверка с реальным Control описаны в [инструкции интеграции](docs/integration.md). Машиночитаемые контракты и проверенные версии находятся в [статусе Environment](docs/integration-status.json).

@@ -1,0 +1,53 @@
+{
+  "version_id": "a0000000-0000-4000-8000-000000000001",
+  "kind": "environment",
+  "modality": "text",
+  "scenario": {
+    "schema_version": 1,
+    "dataset_item_id": "00000000-0000-4000-8000-000000000004",
+    "title": "Сохранение заявки при 504",
+    "modality": "text",
+    "environment_version_id": "a0000000-0000-4000-8000-000000000001",
+    "template_id": "field-service",
+    "template_version": "v1",
+    "initial_fixture": {
+      "clients": [
+        {
+          "id": "client-001",
+          "name": "Тестовый клиент"
+        }
+      ],
+      "slots": []
+    },
+    "actor_customer_ref": "client-001",
+    "virtual_clock": "2026-11-20T12:00:00Z",
+    "business_timezone": "Europe/Moscow",
+    "client_goal": "Создать одну заявку",
+    "client_known_facts": {},
+    "simulator_version_id": "a0000000-0000-4000-8000-000000000002",
+    "fault_rules": [
+      {
+        "fault_type": "timeout_after_save",
+        "method": "POST",
+        "path_pattern": "/api/v1/orders",
+        "http_status": 504,
+        "delay_ms": 30,
+        "max_triggers": 1
+      }
+    ],
+    "assertions": [
+      {
+        "rule_id": "booking.count.v1",
+        "required": true
+      }
+    ],
+    "limits": {
+      "max_client_turns": 10,
+      "max_tool_calls": 10,
+      "session_duration_ms": 60000
+    },
+    "seed_policy": {
+      "mode": "fixed"
+    }
+  }
+}

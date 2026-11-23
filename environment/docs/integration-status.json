@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "component": "environment",
+  "provided_interfaces": [
+    {
+      "name": "EnvironmentService.ValidateTemplate",
+      "version": "struct-proposal",
+      "contract_paths": [
+        "environment/contracts/proto/poligon/environment/v1/environment.proto"
+      ],
+      "fixture_paths": [
+        "environment/contracts/fixtures/validate-request.json",
+        "environment/contracts/fixtures/validate-response.json"
+      ],
+      "state": "verified_real"
+    },
+    {
+      "name": "EnvironmentService.GetCapabilities",
+      "version": "struct-proposal",
+      "contract_paths": [
+        "environment/contracts/proto/poligon/environment/v1/environment.proto"
+      ],
+      "fixture_paths": [
+        "environment/contracts/fixtures/capabilities-request.json",
+        "environment/contracts/fixtures/capabilities-response.json"
+      ],
+      "state": "verified_real"
+    },
+    {
+      "name": "POST /api/v1/attempts",
+      "version": "v1",
+      "contract_paths": [
+        "environment/docs/integration.md"
+      ],
+      "fixture_paths": [
+        "environment/contracts/fixtures/open-request.json",
+        "environment/contracts/fixtures/open-response.json",
+        "environment/contracts/fixtures/open-replay-response.json"
+      ],
+      "state": "verified_real"
+    },
+    {
+      "name": "EnvironmentService.FinalizeAttempt",
+      "version": "v1",
+      "contract_paths": [
+        "environment/contracts/proto/poligon/environment/v1/environment.proto",
+        "environment/contracts/proto/poligon/control/v1/control.proto"
+      ],
+      "fixture_paths": [
+        "environment/contracts/fixtures/finalize-request.json",
+        "environment/contracts/fixtures/finalize-response.json",
+        "environment/contracts/fixtures/finalize-error-request.json",
+        "environment/contracts/fixtures/finalize-error.json"
+      ],
+      "state": "verified_real"
+    },
+    {
+      "name": "environment_snapshot / environment_audit",
+      "version": "v1",
+      "contract_paths": [
+        "environment/contracts/schemas/finalization.json",
+        "environment/docs/integration.md"
+      ],
+      "fixture_paths": [
+        "environment/contracts/fixtures/snapshot.json",
+        "environment/contracts/fixtures/audit.ndjson"
+      ],
+      "state": "verified_real"
+    }
+  ],
+  "dependencies": [
+    {
+      "component": "platform",
+      "repository": "https://github.com/aVoKaD-0/Poligon",
+      "branch": "platform",
+      "commit": "2fe2700620c946e236377c79886e511743d7608c",
+      "contracts": [
+        {
+          "path": "platform/contracts/proto/poligon/control/v1/control.proto",
+          "sha256": "24cfa4784decc869e6d5544a846931856528e68af54c82e2a8e74277873e5db3"
+        },
+        {
+          "path": "platform/contracts/proto/validation.proto",
+          "sha256": "c37ef32f2cc3fc3b2cce944fdade220d7fab2780132626634ddb0c936fa36a9c"
+        },
+        {
+          "path": "platform/contracts/catalog/builtin.v1.json",
+          "sha256": "a16e562223eb187d78b536034a6e17ec4a4cbf878cc8864b1b5fba3a30735521"
+        },
+        {
+          "path": "platform/contracts/schemas/scenario.json",
+          "sha256": "21c58ec545f9fcfdd3d405d68c635716afc9ec8e50ee82d727d997d02ee738a4"
+        },
+        {
+          "path": "platform/contracts/schemas/artifact-ref.json",
+          "sha256": "9b50e6d37244cc9e040e26945afb76f31e32734f4ebc35e0908f3bd9e3e235b4"
+        },
+        {
+          "path": "platform/contracts/fixtures/execution-manifest.v1.json",
+          "sha256": "33edef649532a82902fdb5d71dd5c1f421d1275bbac2fda505e49c030f8d2f11"
+        },
+        {
+          "path": "platform/docs/integration.md",
+          "sha256": "d43941c0f1c10c6adcd10d358983613f35ff0152ebb4cc9464513e9d622b40de"
+        },
+        {
+          "path": "platform/internal/platform/validation.go",
+          "sha256": "34facf31d577de3c31624f8b72165d814b9f5a686a39cd316a16d32c9a81b490"
+        },
+        {
+          "path": "platform/internal/platform/artifacts.go",
+          "sha256": "54fb15ba2b34f27ecf7fb516bc2dc9911d34e158faea7cf42565e299bcbae2bc"
+        }
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "CRM regressions and integration failure/retry tests",
+      "command": "go test -race -count=1 ./...",
+      "result": "passed",
+      "mode": "test_double",
+      "reason": "77 tests and subtests passed. Actual CRM and Environment gRPC are used. Platform Control and storage are test doubles in TestAttemptLifecycle. TestPublishedControl skips unless a live provisioned context is supplied, and was run separately by test/live/control.sh."
+    },
+    {
+      "name": "Go static checks",
+      "command": "go vet ./...",
+      "result": "passed",
+      "mode": "real",
+      "reason": ""
+    },
+    {
+      "name": "Platform validators to Environment binary",
+      "command": "./test/live/control.sh",
+      "result": "passed",
+      "mode": "real",
+      "reason": "Pinned Platform RemoteValidators called both RPCs over TCP using service authentication against the actual cmd/server binary."
+    },
+    {
+      "name": "Opening and finalization to published Control and object storage",
+      "command": "./test/live/control.sh",
+      "result": "passed",
+      "mode": "real",
+      "reason": "Actual cmd/server HTTP/gRPC, pinned Platform ControlService, PostgreSQL 17.6 and MinIO RELEASE.2025-04-22T22-12-26Z. Verified HTTP 504 after save, opening replay, two registered refs, object sizes/SHA-256, stable finalize replay, and expired execution rejection. Platform's test fixture provisions a disposable run using its fakeValidators. No Intelligence worker or Runner dispatch is involved."
+    },
+    {
+      "name": "Shared text acceptance path from integration tasks section 10",
+      "command": "Run the shared Platform/Runner/Intelligence integration profile",
+      "result": "not_run",
+      "mode": "real",
+      "reason": "The required consumer updates and a shared provider-compatible registered catalog are still missing at the checked branch heads."
+    }
+  ],
+  "blocked_by": [
+    {
+      "component": "runner",
+      "interface": "POST /api/v1/attempts and EnvironmentService.FinalizeAttempt consumption",
+      "status": "blocked_missing_dependency",
+      "reason": "Future shared execution stage. runner@75f2454a5ebdf8527fc316c51f9003599d301389 still opens /api/v1/sessions and crm.Finalize returns ErrUnsupported. Runner must consume the published Environment contract and X-Execution-Context header."
+    },
+    {
+      "component": "intelligence",
+      "interface": "field-service/v1 scenario export",
+      "status": "blocked_incompatible_contract",
+      "reason": "Future shared execution stage. feature/ml-intelligence@2f71ed9e17c188d6dbf8c26262aab3d2e7408250 exports service-booking/1.0.0 and derived, unregistered resource IDs."
+    },
+    {
+      "component": "platform",
+      "interface": "Shared registered integration catalog with provider source commits",
+      "status": "blocked_missing_dependency",
+      "reason": "Future shared acceptance stage. platform@2fe2700620c946e236377c79886e511743d7608c publishes a registrable field-service/v1 Environment entry, which this provider supports. A shared catalog fixture compatible with the actual Intelligence providers is still required."
+    }
+  ],
+  "run_instructions": {
+    "readme": "docs/integration.md",
+    "env_template": ".env.integration.example"
+  },
+  "source_hash_method": "sha256 of exact Git blob bytes returned by git show <dependency-commit>:<repository-relative-path>",
+  "compatibility": {
+    "environment_version_id": "a0000000-0000-4000-8000-000000000001",
+    "template_id": "field-service",
+    "template_version": "v1",
+    "capability_version": "field-service.v1",
+    "catalog_source": "2fe2700620c946e236377c79886e511743d7608c:platform/contracts/catalog/builtin.v1.json"
+  },
+  "limitations": [
+    "Private single-host local transport profile. State, attempt bindings, frozen bytes and upload retry metadata have process lifetime, matching the existing in-memory CRM.",
+    "The shared end-to-end assessment path requires consumer changes listed in blocked_by."
+  ],
+  "verified_date": "2026-11-24"
+}

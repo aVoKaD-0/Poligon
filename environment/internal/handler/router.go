@@ -6,51 +6,57 @@ import (
 
 // NewRouter constructs and registers all HTTP endpoints.
 func NewRouter(h *Handler) http.Handler {
+	return NewGuardedRouter(h, func(next http.HandlerFunc) http.HandlerFunc { return next })
+}
+
+// NewGuardedRouter applies the guard after path variables have been resolved.
+func NewGuardedRouter(h *Handler, guard func(http.HandlerFunc) http.HandlerFunc) http.Handler {
 	mux := http.NewServeMux()
+	handle := func(pattern string, next http.HandlerFunc) { mux.HandleFunc(pattern, guard(next)) }
 
 	// Health check
-	mux.HandleFunc("GET /health", h.Health)
-	mux.HandleFunc("GET /api/v1/health", h.Health)
+	handle("GET /health", h.Health)
+	handle("GET /api/v1/health", h.Health)
 
 	// Session orchestration endpoints
-	mux.HandleFunc("POST /api/v1/sessions", h.CreateOrInitSession)
-	mux.HandleFunc("GET /api/v1/sessions", h.ListSessions)
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/state", h.GetSessionState)
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/audit", h.GetSessionAudit)
-	mux.HandleFunc("POST /api/v1/sessions/{session_id}/reset", h.ResetSession)
-	mux.HandleFunc("POST /api/v1/sessions/{session_id}/faults", h.AddFaultRule)
-	mux.HandleFunc("DELETE /api/v1/sessions/{session_id}/faults", h.ClearFaultRules)
-	mux.HandleFunc("POST /api/v1/sessions/{session_id}/verify", h.VerifySession)
+	handle("POST /api/v1/sessions", h.CreateOrInitSession)
+	handle("GET /api/v1/sessions", h.ListSessions)
+	handle("GET /api/v1/sessions/{session_id}/state", h.GetSessionState)
+	handle("GET /api/v1/sessions/{session_id}/audit", h.GetSessionAudit)
+	handle("POST /api/v1/sessions/{session_id}/reset", h.ResetSession)
+	handle("POST /api/v1/sessions/{session_id}/faults", h.AddFaultRule)
+	handle("DELETE /api/v1/sessions/{session_id}/faults", h.ClearFaultRules)
+	handle("POST /api/v1/sessions/{session_id}/verify", h.VerifySession)
 
 	// Global session state shortcuts (using X-Session-ID header)
-	mux.HandleFunc("GET /api/v1/state", h.GetSessionState)
-	mux.HandleFunc("GET /api/v1/audit", h.GetSessionAudit)
-	mux.HandleFunc("POST /api/v1/reset", h.ResetSession)
-	mux.HandleFunc("POST /api/v1/verify", h.VerifySession)
+	handle("GET /api/v1/state", h.GetSessionState)
+	handle("GET /api/v1/audit", h.GetSessionAudit)
+	handle("POST /api/v1/reset", h.ResetSession)
+	handle("POST /api/v1/verify", h.VerifySession)
 
 	// CRM Business API (Session identified by X-Session-ID header or default)
-	mux.HandleFunc("GET /api/v1/clients", h.ListClients)
-	mux.HandleFunc("GET /api/v1/clients/{id}", h.GetClient)
+	handle("GET /api/v1/clients", h.ListClients)
+	handle("GET /api/v1/clients/{id}", h.GetClient)
 
-	mux.HandleFunc("GET /api/v1/slots", h.ListSlots)
+	handle("GET /api/v1/slots", h.ListSlots)
 
-	mux.HandleFunc("GET /api/v1/orders", h.ListOrders)
-	mux.HandleFunc("GET /api/v1/orders/{id}", h.GetOrder)
-	mux.HandleFunc("POST /api/v1/orders", h.CreateOrder)
-	mux.HandleFunc("PATCH /api/v1/orders/{id}", h.UpdateOrder)
-	mux.HandleFunc("POST /api/v1/orders/{id}/cancel", h.CancelOrder)
-	mux.HandleFunc("DELETE /api/v1/orders/{id}", h.CancelOrder)
+	handle("GET /api/v1/orders", h.ListOrders)
+	handle("GET /api/v1/orders/{id}", h.GetOrder)
+	handle("POST /api/v1/orders", h.CreateOrder)
+	handle("PATCH /api/v1/orders/{id}", h.UpdateOrder)
+	handle("POST /api/v1/orders/{id}/cancel", h.CancelOrder)
+	handle("DELETE /api/v1/orders/{id}", h.CancelOrder)
 
 	// Additional session-prefixed routes for explicit routing without headers
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/clients", h.ListClients)
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/clients/{id}", h.GetClient)
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/slots", h.ListSlots)
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/orders", h.ListOrders)
-	mux.HandleFunc("GET /api/v1/sessions/{session_id}/orders/{id}", h.GetOrder)
-	mux.HandleFunc("POST /api/v1/sessions/{session_id}/orders", h.CreateOrder)
-	mux.HandleFunc("PATCH /api/v1/sessions/{session_id}/orders/{id}", h.UpdateOrder)
-	mux.HandleFunc("POST /api/v1/sessions/{session_id}/orders/{id}/cancel", h.CancelOrder)
-	mux.HandleFunc("DELETE /api/v1/sessions/{session_id}/orders/{id}", h.CancelOrder)
+	handle("GET /api/v1/sessions/{session_id}/clients", h.ListClients)
+	handle("GET /api/v1/sessions/{session_id}/clients/{id}", h.GetClient)
+	handle("GET /api/v1/sessions/{session_id}/slots", h.ListSlots)
+	handle("GET /api/v1/sessions/{session_id}/orders", h.ListOrders)
+	handle("GET /api/v1/sessions/{session_id}/orders/{id}", h.GetOrder)
+	handle("POST /api/v1/sessions/{session_id}/orders", h.CreateOrder)
+	handle("PATCH /api/v1/sessions/{session_id}/orders/{id}", h.UpdateOrder)
+	handle("POST /api/v1/sessions/{session_id}/orders/{id}/cancel", h.CancelOrder)
+	handle("DELETE /api/v1/sessions/{session_id}/orders/{id}", h.CancelOrder)
 
 	// Logging middleware
 	return loggingMiddleware(mux)

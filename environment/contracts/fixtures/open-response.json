@@ -1,0 +1,28 @@
+{
+  "context": {
+    "attempt_no": 1,
+    "project_id": "00000000-0000-4000-8000-000000000001",
+    "run_id": "00000000-0000-4000-8000-000000000002",
+    "session_id": "00000000-0000-4000-8000-000000000003"
+  },
+  "session_id": "crm-1",
+  "snapshot": {
+    "active_orders_count": 0,
+    "clients": {
+      "client-001": {
+        "address": "",
+        "created_at": "0001-01-01T00:00:00Z",
+        "id": "client-001",
+        "name": "Тестовый клиент",
+        "phone": ""
+      }
+    },
+    "created_at": "2026-11-24T01:04:33.728189+03:00",
+    "orders": {},
+    "session_id": "crm-1",
+    "slots": {},
+    "total_orders_count": 0,
+    "updated_at": "2026-11-24T01:04:33.728189+03:00"
+  },
+  "status": "initialized"
+}
